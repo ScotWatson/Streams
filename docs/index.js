@@ -19,8 +19,8 @@ const loadWindow = new Promise(function (resolve, reject) {
 
 Promise.all( [ loadWindow, loadStreamsModule ] ).then(start, fail);
 
-function fail(error) {
-  console.error(error);
+function fail(e) {
+  console.error(e);
 }
 
 
