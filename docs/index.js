@@ -25,6 +25,7 @@ function fail(e) {
 
 
 function start( [ evtWindow, moduleUnicode ] ) {
+  /*
   const selectReadableObject = document.createElement("select");
   document.body.appendChild(selectReadableObject);
   const optionRandomNumber = document.createElement("option");
@@ -100,4 +101,5 @@ function start( [ evtWindow, moduleUnicode ] ) {
     },
   });
   readable.pipeTo(writable);
+  */
 }
