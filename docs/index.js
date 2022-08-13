@@ -26,7 +26,7 @@ function fail(e) {
 
 function start( [ evtWindow, moduleUnicode ] ) {
   const selectReadableObject = document.createElement("select");
-  document.appendChild(selectReadableObject);
+  document.body.appendChild(selectReadableObject);
   const optionRandomNumber = document.createElement("option");
   optionRandomNumber.innerHTML = "Random Number";
   optionRandomNumber.value = "Number";
