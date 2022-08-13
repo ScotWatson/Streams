@@ -46,7 +46,7 @@ function start( [ evtWindow, moduleUnicode ] ) {
           break;
         case "Object":
           controller.enqueue({
-            value: Math.random();
+            value: Math.random(),
           });
           break;
         default:
