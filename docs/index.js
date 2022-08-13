@@ -29,11 +29,11 @@ function start( [ evtWindow, moduleUnicode ] ) {
   document.body.appendChild(selectReadableObject);
   const optionRandomNumber = document.createElement("option");
   optionRandomNumber.innerHTML = "Random Number";
-  optionRandomNumber.value = "Number";
+  optionRandomNumber.setAttribute("value", "Number");
   selectReadableObject.appendChild(optionRandomNumber);
   const optionRandomObject = document.createElement("option");
   optionRandomObject.innerHTML = "Random Object";
-  optionRandomNumber.value = "Object";
+  optionRandomObject.setAttribute("value", "Number");
   selectReadableObject.appendChild(optionRandomObject);
   const readable = new AnnotatedReadableStream({
     start: function (controller) {
