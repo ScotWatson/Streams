@@ -23,7 +23,81 @@ function fail(error) {
   console.error(error);
 }
 
+
 function start( [ evtWindow, moduleUnicode ] ) {
-  const readable = new ReadableStream();
-  const writable = new WritableStream();
+  const selectReadableObject = document.createElement("select");
+  document.appendChild(selectReadableObject);
+  const optionRandomNumber = document.createElement("option");
+  optionRandomNumber.innerHTML = "Random Number";
+  optionRandomNumber.value = "Number";
+  selectReadableObject.appendChild(optionRandomNumber);
+  const optionRandomObject = document.createElement("option");
+  optionRandomObject.innerHTML = "Random Object";
+  optionRandomNumber.value = "Object";
+  selectReadableObject.appendChild(optionRandomObject);
+  const readable = new AnnotatedReadableStream({
+    start: function (controller) {
+      return;
+    },
+    pull: function (controller) {
+      switch (selectReadableObject.value) {
+        case "Number":
+          controller.enqueue(Math.random());
+          break;
+        case "Object":
+          controller.enqueue({
+            value: Math.random();
+          });
+          break;
+        default:
+          controller.error("Invalid Selection");
+          break;
+      }
+      return;
+    },
+    cancel: function (reason) {
+      console.error(reason);
+      return;
+    },
+    highWaterMark: 1,
+    chunkSize: function (chunk) {
+      return 1;
+    },
+  });
+  const readableByte = new AnnotatedReadableByteStream({
+    start: function (controller) {
+      return;
+    },
+    pull: function (controller) {
+      controller.enqueue();
+    },
+    cancel: function (reason) {
+      console.error(reason);
+      return;
+    },
+    highWaterMark: 1,
+    chunkSize: function (chunk) {
+      return 1;
+    },
+  });
+  const writable = new AnnotatedWritableStream({
+    start: function (controller) {
+      return;
+    },
+    write: function (chunk, controller) {
+      console.log(chunk);
+    },
+    close: function (controller) {
+      return;
+    },
+    abort: function (reason) {
+      console.error(reason);
+      return;
+    },
+    highWaterMark: 1,
+    chunkSize: function (chunk) {
+      return 1;
+    },
+  });
+  readable.pipeTo(writable);
 }
