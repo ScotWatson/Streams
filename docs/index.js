@@ -29,7 +29,7 @@ function fail(e) {
   console.error(e);
 }
 
-function start( [ evtWindow, moduleUnicode ] ) {
+function start( [ evtWindow, moduleStreams ] ) {
   const selectReadableObject = document.createElement("select");
   document.body.appendChild(selectReadableObject);
   const optionRandomNumber = document.createElement("option");
@@ -40,7 +40,7 @@ function start( [ evtWindow, moduleUnicode ] ) {
   optionRandomObject.innerHTML = "Random Object";
   optionRandomObject.setAttribute("value", "Number");
   selectReadableObject.appendChild(optionRandomObject);
-  const readable = new AnnotatedReadableStream({
+  const readable = new moduleStreams.AnnotatedReadableStream({
     start: function (controller) {
       return;
     },
@@ -69,7 +69,7 @@ function start( [ evtWindow, moduleUnicode ] ) {
       return 1;
     },
   });
-  const readableByte = new AnnotatedReadableByteStream({
+  const readableByte = new moduleStreams.AnnotatedReadableByteStream({
     start: function (controller) {
       return;
     },
@@ -85,7 +85,7 @@ function start( [ evtWindow, moduleUnicode ] ) {
       return 1;
     },
   });
-  const writable = new AnnotatedWritableStream({
+  const writable = new moduleStreams.AnnotatedWritableStream({
     start: function (controller) {
       return;
     },
