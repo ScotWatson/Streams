@@ -48,6 +48,7 @@ function start( [ evtWindow, moduleStreams ] ) {
   optionRandomNumber.innerHTML = "Random Number";
   optionRandomNumber.setAttribute("value", "Number");
   selectReadableObject.appendChild(optionRandomNumber);
+  document.body.appendChild(document.createElement("br"));
   document.body.appendChild(document.createTextNode("Number of Samples"));
   const inpNumSamples = document.createElement("input");
   inpNumSamples.type = "text";
