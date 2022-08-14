@@ -52,8 +52,11 @@ function start( [ evtWindow, moduleStreams ] ) {
     },
     pull: function (controller) {
       window.console.log("readable desiredSize:", controller.desiredSize);
-      if (count === 30) {
+      if (count === 10) {
         window.console.log("readable maxed");
+        return;
+      } else {
+        window.console.log("count: ", count);
       }
       switch (selectReadableObject.value) {
         case "Character":
