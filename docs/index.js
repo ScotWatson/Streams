@@ -87,6 +87,7 @@ function start( [ evtWindow, moduleStreams ] ) {
     },
     highWaterMark: 5,
     chunkSize: function (chunk) {
+      console.log("readable chunk:", chunk);
       return 1;
     },
   });
@@ -128,6 +129,7 @@ function start( [ evtWindow, moduleStreams ] ) {
     },
     highWaterMark: 5,
     chunkSize: function (chunk) {
+      console.log("writable chunk:", chunk);
       return 1;
     },
   });
