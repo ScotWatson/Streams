@@ -76,122 +76,120 @@ function start( [ evtWindow, moduleStreams ] ) {
   btnRun.innerHTML = "Run";
   btnRun.addEventListener("click", runStreams);
   document.body.appendChild(btnRun);
-}
-
-function runStreams() {
-  let count = maxCount;
-  const readable = new moduleStreams.AnnotatedReadableStream({
-    log: window.console.log,
-    start: function (controller) {
-      return;
-    },
-    pull: function (controller) {
-      window.console.log("readable desiredSize:", controller.desiredSize);
-      if (count === 0) {
-        window.console.log("readable no more samples");
+  function runStreams() {
+    let count = maxCount;
+    const readable = new moduleStreams.AnnotatedReadableStream({
+      log: window.console.log,
+      start: function (controller) {
         return;
-      } else {
-        window.console.log("count: ", count);
-      }
-      switch (selectReadableObject.value) {
-        case "Character":
-          window.console.log("start 1st enqueue");
-          controller.enqueue(String.fromCharCode(Math.random() * 0x60 + 0x20));
-          window.console.log("end 1st/start 2nd enqueue");
-          controller.enqueue(String.fromCharCode(Math.random() * 0x60 + 0x20));
-          window.console.log("end 2nd enqueue");
-          break;
-        case "Object":
-          controller.enqueue({
-            value: Math.random(),
-          });
-          break;
-        case "Number":
-          controller.enqueue(Math.random());
-          break;
-        default:
-          controller.error("Invalid Selection");
-          break;
-      }
-      --count;
-      return;
-    },
-    cancel: function (reason) {
-      window.console.error(reason);
-      return;
-    },
-    highWaterMark: readableHighWaterMark,
-    chunkSize: function (chunk) {
-      console.log("readable chunk:", chunk);
-      return 1;
-    },
-  });
-  const writable = new moduleStreams.AnnotatedWritableStream({
-    log: window.console.log,
-    start: function (controller) {
-      return;
-    },
-    write: function (chunk, controller) {
-      window.console.log(chunk);
-    },
-    close: function (controller) {
-      return;
-    },
-    abort: function (reason) {
-      window.console.error(reason);
-      return;
-    },
-    highWaterMark: writableHighWaterMark,
-    chunkSize: function (chunk) {
-      console.log("writable chunk:", chunk);
-      return 1;
-    },
-  });
-  window.console.error("start pipe");
-  readable.pipeTo(writable);
-  window.console.error("end pipe");
-}
-
-function runByteStreams() {
-  const readableByte = new moduleStreams.AnnotatedReadableByteStream({
-    start: function (controller) {
-      return;
-    },
-    pull: function (controller) {
-      console.log("readableByte desiredSize:", controller.desiredSize);
-      const view = new Uint8Array(1);
-      view[0] = Math.random() * 0xFF;
-      controller.enqueue(view);
-    },
-    cancel: function (reason) {
-      console.error(reason);
-      return;
-    },
-    highWaterMark: 5,
-    chunkSize: function (chunk) {
-      return 1;
-    },
-  });
-  const writable = new moduleStreams.AnnotatedWritableStream({
-    log: window.console.log,
-    start: function (controller) {
-      return;
-    },
-    write: function (chunk, controller) {
-      window.console.log(chunk);
-    },
-    close: function (controller) {
-      return;
-    },
-    abort: function (reason) {
-      window.console.error(reason);
-      return;
-    },
-    highWaterMark: 5,
-    chunkSize: function (chunk) {
-      console.log("writable chunk:", chunk);
-      return 1;
-    },
-  });
-  readable.pipeTo(writable);
+      },
+      pull: function (controller) {
+        window.console.log("readable desiredSize:", controller.desiredSize);
+        if (count === 0) {
+          window.console.log("readable no more samples");
+          return;
+        } else {
+          window.console.log("count: ", count);
+        }
+        switch (selectReadableObject.value) {
+          case "Character":
+            window.console.log("start 1st enqueue");
+            controller.enqueue(String.fromCharCode(Math.random() * 0x60 + 0x20));
+            window.console.log("end 1st/start 2nd enqueue");
+            controller.enqueue(String.fromCharCode(Math.random() * 0x60 + 0x20));
+            window.console.log("end 2nd enqueue");
+            break;
+          case "Object":
+            controller.enqueue({
+              value: Math.random(),
+            });
+            break;
+          case "Number":
+            controller.enqueue(Math.random());
+            break;
+          default:
+            controller.error("Invalid Selection");
+            break;
+        }
+        --count;
+        return;
+      },
+      cancel: function (reason) {
+        window.console.error(reason);
+        return;
+      },
+      highWaterMark: readableHighWaterMark,
+      chunkSize: function (chunk) {
+        console.log("readable chunk:", chunk);
+        return 1;
+      },
+    });
+    const writable = new moduleStreams.AnnotatedWritableStream({
+      log: window.console.log,
+      start: function (controller) {
+        return;
+      },
+      write: function (chunk, controller) {
+        window.console.log(chunk);
+      },
+      close: function (controller) {
+        return;
+      },
+      abort: function (reason) {
+        window.console.error(reason);
+        return;
+      },
+      highWaterMark: writableHighWaterMark,
+      chunkSize: function (chunk) {
+        console.log("writable chunk:", chunk);
+        return 1;
+      },
+    });
+    window.console.error("start pipe");
+    readable.pipeTo(writable);
+    window.console.error("end pipe");
+  }
+  function runByteStreams() {
+    const readableByte = new moduleStreams.AnnotatedReadableByteStream({
+      start: function (controller) {
+        return;
+      },
+      pull: function (controller) {
+        console.log("readableByte desiredSize:", controller.desiredSize);
+        const view = new Uint8Array(1);
+        view[0] = Math.random() * 0xFF;
+        controller.enqueue(view);
+      },
+      cancel: function (reason) {
+        console.error(reason);
+        return;
+      },
+      highWaterMark: 5,
+      chunkSize: function (chunk) {
+        return 1;
+      },
+    });
+    const writable = new moduleStreams.AnnotatedWritableStream({
+      log: window.console.log,
+      start: function (controller) {
+        return;
+      },
+      write: function (chunk, controller) {
+        window.console.log(chunk);
+      },
+      close: function (controller) {
+        return;
+      },
+      abort: function (reason) {
+        window.console.error(reason);
+        return;
+      },
+      highWaterMark: 5,
+      chunkSize: function (chunk) {
+        console.log("writable chunk:", chunk);
+        return 1;
+      },
+    });
+    readable.pipeTo(writable);
+  }
 }
