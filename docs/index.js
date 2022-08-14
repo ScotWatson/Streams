@@ -82,7 +82,7 @@ function start( [ evtWindow, moduleStreams ] ) {
       return;
     },
     pull: function (controller) {
-      console.log("readable desiredSize:", controller.desiredSize);
+      console.log("readableByte desiredSize:", controller.desiredSize);
       const view = new Uint8Array(1);
       view[0] = Math.random() * 0xFF;
       controller.enqueue(view);
