@@ -9,7 +9,12 @@ const loadStreamsModule = import("https://scotwatson.github.io/Streams/Streams.m
 
 loadStreamsModule.then(function (module) {
   console.log(Object.getOwnPropertyNames(module));
-}, console.error);
+}, streamFail);
+
+function streamFail(e) {
+  console.error("Stream Fail")
+  console.error(e)
+}
 
 const loadWindow = new Promise(function (resolve, reject) {
   window.addEventListener("load", function (evt) {
@@ -20,6 +25,7 @@ const loadWindow = new Promise(function (resolve, reject) {
 Promise.all( [ loadWindow, loadStreamsModule ] ).then(start, fail);
 
 function fail(e) {
+  console.error("loadFail");
   console.error(e);
 }
 
