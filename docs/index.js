@@ -32,13 +32,13 @@ function fail(e) {
 function start( [ evtWindow, moduleStreams ] ) {
   const selectReadableObject = document.createElement("select");
   document.body.appendChild(selectReadableObject);
+  const optionRandomCharacter = document.createElement("option");
+  optionRandomCharacter.innerHTML = "Random Character";
+  optionRandomCharacter.setAttribute("value", "Character");
+  selectReadableObject.appendChild(optionRandomCharacter);
   const optionRandomObject = document.createElement("option");
   optionRandomObject.innerHTML = "Random Object";
-  optionRandomObject.setAttribute("value", "Number");
-  selectReadableObject.appendChild(optionRandomObject);
-  const optionRandomObject = document.createElement("option");
-  optionRandomObject.innerHTML = "Random Character";
-  optionRandomObject.setAttribute("value", "Character");
+  optionRandomObject.setAttribute("value", "Object");
   selectReadableObject.appendChild(optionRandomObject);
   const optionRandomNumber = document.createElement("option");
   optionRandomNumber.innerHTML = "Random Number";
