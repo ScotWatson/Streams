@@ -30,6 +30,7 @@ function fail(e) {
 }
 
 function start( [ evtWindow, moduleStreams ] ) {
+  let count = 0;
   const selectReadableObject = document.createElement("select");
   document.body.appendChild(selectReadableObject);
   const optionRandomCharacter = document.createElement("option");
@@ -45,11 +46,15 @@ function start( [ evtWindow, moduleStreams ] ) {
   optionRandomNumber.setAttribute("value", "Number");
   selectReadableObject.appendChild(optionRandomNumber);
   const readable = new moduleStreams.AnnotatedReadableStream({
+    log: window.console.log,
     start: function (controller) {
       return;
     },
     pull: function (controller) {
-      console.log("readable desiredSize:", controller.desiredSize);
+      window.console.log("readable desiredSize:", controller.desiredSize);
+      if (count === 30) {
+        window.console.log("readable maxed");
+      }
       switch (selectReadableObject.value) {
         case "Character":
           controller.enqueue(String.fromCharCode(Math.random() * 0x60 + 0x20));
@@ -66,10 +71,11 @@ function start( [ evtWindow, moduleStreams ] ) {
           controller.error("Invalid Selection");
           break;
       }
+      ++count;
       return;
     },
     cancel: function (reason) {
-      console.error(reason);
+      window.console.error(reason);
       return;
     },
     highWaterMark: 5,
@@ -103,13 +109,13 @@ function start( [ evtWindow, moduleStreams ] ) {
       return;
     },
     write: function (chunk, controller) {
-      console.log(chunk);
+      window.console.log(chunk);
     },
     close: function (controller) {
       return;
     },
     abort: function (reason) {
-      console.error(reason);
+      window.console.error(reason);
       return;
     },
     highWaterMark: 5,
