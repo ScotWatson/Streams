@@ -31,6 +31,8 @@ export class RandomReadableStream extends ReadableStream {
 export class RandomReadableByteStream extends ReadableStream {
   constructor() {
     const underlyingSource = {
+      type: "bytes",
+      autoAllocateChunkSize: 1,
       start: function (controller) {
         return;
       },
@@ -43,13 +45,9 @@ export class RandomReadableByteStream extends ReadableStream {
       cancel: function (reason) {
         return;
       },
-      type: "bytes",
-      autoAllocateChunkSize: 1,
     };
     const queuingStrategy = {
       highWaterMark: 1,
-      size: function (chunk) {
-      }
     };
     super(underlyingSource, queuingStrategy);
   }
@@ -72,8 +70,6 @@ export class Sequencer extends WritableStream {
     };
     const queuingStrategy = {
       highWaterMark: 1,
-      size: function (chunk) {
-      },
     }
     super(underlyingSink, queuingStrategy);
   }
@@ -108,7 +104,6 @@ export class AnnotatedReadableStream extends ReadableStream {
     };
     const queuingStrategy = {
       highWaterMark: objArgs.highWaterMark,
-      /*
       size: function (chunk) {
         console.log("ReadableStream chunkSize called");
         if (typeof objArgs.chunkSize === "function") {
@@ -116,7 +111,6 @@ export class AnnotatedReadableStream extends ReadableStream {
         }
         return;
       }
-      */
     };
     super(underlyingSource, queuingStrategy);
   }
@@ -125,6 +119,8 @@ export class AnnotatedReadableStream extends ReadableStream {
 export class AnnotatedReadableByteStream extends ReadableStream {
   constructor(objArgs) {
     const underlyingSource = {
+      type: "bytes",
+      autoAllocateChunkSize: 1,
       start: function (controller) {
         console.log("ReadableByteStream start called");
         if (typeof objArgs.start === "function") {
@@ -146,18 +142,9 @@ export class AnnotatedReadableByteStream extends ReadableStream {
         }
         return;
       },
-      type: "bytes",
-      autoAllocateChunkSize: 1,
     };
     const queuingStrategy = {
       highWaterMark: objArgs.highWaterMark,
-      size: function (chunk) {
-        console.log("ReadableByteStream chunkSize called");
-        if (typeof objArgs.chunkSize === "function") {
-          objArgs.chunkSize(chunk);
-        }
-        return;
-      }
     };
     super(underlyingSource, queuingStrategy);
   }
