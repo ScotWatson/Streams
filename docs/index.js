@@ -49,6 +49,7 @@ function start( [ evtWindow, moduleStreams ] ) {
       return;
     },
     pull: function (controller) {
+      console.log("readable desiredSize:", controller.desiredSize);
       switch (selectReadableObject.value) {
         case "Character":
           controller.enqueue(String.fromCharCode(Math.random() * 0x60 + 0x20));
@@ -81,7 +82,10 @@ function start( [ evtWindow, moduleStreams ] ) {
       return;
     },
     pull: function (controller) {
-      controller.enqueue();
+      console.log("readable desiredSize:", controller.desiredSize);
+      const view = new Uint8Array(1);
+      view[0] = Math.random() * 0xFF;
+      controller.enqueue(view);
     },
     cancel: function (reason) {
       console.error(reason);
