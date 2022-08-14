@@ -43,7 +43,7 @@ export class RandomReadableByteStream extends ReadableStream {
       cancel: function (reason) {
         return;
       },
-      type: "byte",
+      type: "bytes",
       autoAllocateChunkSize: 1,
     };
     const queuingStrategy = {
@@ -103,7 +103,7 @@ export class AnnotatedReadableStream extends ReadableStream {
         }
         return;
       },
-      type: "byte",
+      type: "bytes",
       autoAllocateChunkSize: 1,
     };
     const queuingStrategy = {
@@ -144,7 +144,7 @@ export class AnnotatedReadableByteStream extends ReadableStream {
         }
         return;
       },
-      type: "byte",
+      type: "bytes",
       autoAllocateChunkSize: 1,
     };
     const queuingStrategy = {
