@@ -22,6 +22,7 @@ export class RandomReadableStream extends ReadableStream {
     const queuingStrategy = {
       highWaterMark: 1,
       size: function (chunk) {
+        return 1;
       }
     };
     super(underlyingSource, queuingStrategy);
@@ -105,9 +106,9 @@ export class AnnotatedReadableStream extends ReadableStream {
       size: function (chunk) {
         console.log("ReadableStream chunkSize called");
         if (typeof objArgs.chunkSize === "function") {
-          objArgs.chunkSize(chunk);
+          return objArgs.chunkSize(chunk);
         }
-        return;
+        return 1;
       }
     };
     super(underlyingSource, queuingStrategy);
@@ -185,9 +186,9 @@ export class AnnotatedWritableStream extends WritableStream {
       size: function (chunk) {
         console.log("WritableStream chunkSize called");
         if (typeof objArgs.chunkSize === "function") {
-          objArgs.chunkSize(chunk);
+          return objArgs.chunkSize(chunk);
         }
-        return;
+        return 1;
       }
     };
     super(underlyingSink, queuingStrategy);
