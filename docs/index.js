@@ -77,6 +77,7 @@ function start( [ evtWindow, moduleStreams ] ) {
       return 1;
     },
   });
+  /*
   const readableByte = new moduleStreams.AnnotatedReadableByteStream({
     start: function (controller) {
       return;
@@ -96,6 +97,7 @@ function start( [ evtWindow, moduleStreams ] ) {
       return 1;
     },
   });
+  */
   const writable = new moduleStreams.AnnotatedWritableStream({
     start: function (controller) {
       return;
