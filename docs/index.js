@@ -60,8 +60,11 @@ function start( [ evtWindow, moduleStreams ] ) {
       }
       switch (selectReadableObject.value) {
         case "Character":
+          window.console.log("start 1st enqueue");
           controller.enqueue(String.fromCharCode(Math.random() * 0x60 + 0x20));
+          window.console.log("end 1st/start 2nd enqueue");
           controller.enqueue(String.fromCharCode(Math.random() * 0x60 + 0x20));
+          window.console.log("end 2nd enqueue");
           break;
         case "Object":
           controller.enqueue({
