@@ -78,23 +78,26 @@ export class Sequencer extends WritableStream {
 
 export class AnnotatedReadableStream extends ReadableStream {
   constructor(objArgs) {
+    if (typeof objArgs.log !== "function") {
+      throw new Error("log function must be provided.");
+    }
     const underlyingSource = {
       start: function (controller) {
-        console.log("ReadableStream start called");
+        objArgs.log("ReadableStream start called");
         if (typeof objArgs.start === "function") {
           objArgs.start(controller);
         }
         return;
       },
       pull: function (controller) {
-        console.log("ReadableStream pull called");
+        objArgs.log("ReadableStream pull called");
         if (typeof objArgs.pull === "function") {
           objArgs.pull(controller);
         }
         return;
       },
       cancel: function (reason) {
-        console.log("ReadableStream cancel called");
+        objArgs.log("ReadableStream cancel called");
         if (typeof objArgs.cancel === "function") {
           objArgs.cancel(reason);
         }
@@ -104,7 +107,7 @@ export class AnnotatedReadableStream extends ReadableStream {
     const queuingStrategy = {
       highWaterMark: objArgs.highWaterMark,
       size: function (chunk) {
-        console.log("ReadableStream chunkSize called");
+        objArgs.log("ReadableStream chunkSize called");
         if (typeof objArgs.chunkSize === "function") {
           return objArgs.chunkSize(chunk);
         }
@@ -117,25 +120,28 @@ export class AnnotatedReadableStream extends ReadableStream {
 
 export class AnnotatedReadableByteStream extends ReadableStream {
   constructor(objArgs) {
+    if (typeof objArgs.log !== "function") {
+      throw new Error("log function must be provided.");
+    }
     const underlyingSource = {
       type: "bytes",
       autoAllocateChunkSize: 1,
       start: function (controller) {
-        console.log("ReadableByteStream start called");
+        objArgs.log("ReadableByteStream start called");
         if (typeof objArgs.start === "function") {
           objArgs.start(controller);
         }
         return;
       },
       pull: function (controller) {
-        console.log("ReadableByteStream pull called");
+        objArgs.log("ReadableByteStream pull called");
         if (typeof objArgs.pull === "function") {
           objArgs.pull(controller);
         }
         return;
       },
       cancel: function (reason) {
-        console.log("ReadableByteStream cancel called");
+        objArgs.log("ReadableByteStream cancel called");
         if (typeof objArgs.cancel === "function") {
           objArgs.cancel(reason);
         }
@@ -151,30 +157,33 @@ export class AnnotatedReadableByteStream extends ReadableStream {
 
 export class AnnotatedWritableStream extends WritableStream {
   constructor(objArgs) {
+    if (typeof objArgs.log !== "function") {
+      throw new Error("log function must be provided.");
+    }
     const underlyingSink = {
       start: function (controller) {
-        console.log("WritableStream start called");
+        objArgs.log("WritableStream start called");
         if (typeof objArgs.start === "function") {
           objArgs.start(controller);
         }
         return;
       },
       write: function (chunk, controller) {
-        console.log("WritableStream write called");
+        objArgs.log("WritableStream write called");
         if (typeof objArgs.write === "function") {
           objArgs.write(chunk, controller);
         }
         return;
       },
       close: function (controller) {
-        console.log("WritableStream close called");
+        objArgs.log("WritableStream close called");
         if (typeof objArgs.close === "function") {
           objArgs.close(controller);
         }
         return;
       },
       abort: function (reason) {
-        console.log("WritableStream abort called");
+        objArgs.log("WritableStream abort called");
         if (typeof objArgs.abort === "function") {
           objArgs.abort(reason);
         }
@@ -184,7 +193,7 @@ export class AnnotatedWritableStream extends WritableStream {
     const queuingStrategy = {
       highWaterMark: objArgs.highWaterMark,
       size: function (chunk) {
-        console.log("WritableStream chunkSize called");
+        objArgs.log("WritableStream chunkSize called");
         if (typeof objArgs.chunkSize === "function") {
           return objArgs.chunkSize(chunk);
         }
