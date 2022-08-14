@@ -29,8 +29,11 @@ function fail(e) {
   console.error(e);
 }
 
+let maxCount;
+let readableHighWaterMark;
+let writableHighWaterMark;
+
 function start( [ evtWindow, moduleStreams ] ) {
-  let count = 0;
   const selectReadableObject = document.createElement("select");
   document.body.appendChild(selectReadableObject);
   const optionRandomCharacter = document.createElement("option");
@@ -45,6 +48,38 @@ function start( [ evtWindow, moduleStreams ] ) {
   optionRandomNumber.innerHTML = "Random Number";
   optionRandomNumber.setAttribute("value", "Number");
   selectReadableObject.appendChild(optionRandomNumber);
+  document.body.appendChild(document.createTextNode("Number of Samples"));
+  const inpNumSamples = document.createElement("input");
+  inpNumSamples.type = "text";
+  inpNumSamples.addEventListener("input", function (evt) {
+    maxCount = parseInt(evt.target.value);
+  });
+  document.body.appendChild(inpNumSamples);
+  document.body.appendChild(document.createElement("br"));
+  document.body.appendChild(document.createTextNode("readable High Water Mark:"));
+  const inpReadableHighWaterMark = document.createElement("input");
+  inpReadableHighWaterMark.type = "text";
+  inpReadableHighWaterMark.addEventListener("input", function (evt) {
+    readableHighWaterMark = parseInt(evt.target.value);
+  });
+  document.body.appendChild(inpReadableHighWaterMark);
+  document.body.appendChild(document.createElement("br"));
+  document.body.appendChild(document.createTextNode("writable High Water Mark:"));
+  const inpWritableHighWaterMark = document.createElement("input");
+  inpWritableHighWaterMark.type = "text";
+  inpWritableHighWaterMark.addEventListener("input", function (evt) {
+    writableHighWaterMark = parseInt(evt.target.value);
+  });
+  document.body.appendChild(inpWritableHighWaterMark);
+  document.body.appendChild(document.createElement("br"));
+  const btnRun = document.createElement("button");
+  btnRun.innerHTML = "Run";
+  btnRun.addEventListener("click", runStreams);
+  document.body.appendChild(btnRun);
+}
+
+function runStreams() {
+  let count = maxCount;
   const readable = new moduleStreams.AnnotatedReadableStream({
     log: window.console.log,
     start: function (controller) {
@@ -52,8 +87,8 @@ function start( [ evtWindow, moduleStreams ] ) {
     },
     pull: function (controller) {
       window.console.log("readable desiredSize:", controller.desiredSize);
-      if (count === 10) {
-        window.console.log("readable maxed");
+      if (count === 0) {
+        window.console.log("readable no more samples");
         return;
       } else {
         window.console.log("count: ", count);
@@ -78,20 +113,46 @@ function start( [ evtWindow, moduleStreams ] ) {
           controller.error("Invalid Selection");
           break;
       }
-      ++count;
+      --count;
       return;
     },
     cancel: function (reason) {
       window.console.error(reason);
       return;
     },
-    highWaterMark: 5,
+    highWaterMark: readableHighWaterMark,
     chunkSize: function (chunk) {
       console.log("readable chunk:", chunk);
       return 1;
     },
   });
-  /*
+  const writable = new moduleStreams.AnnotatedWritableStream({
+    log: window.console.log,
+    start: function (controller) {
+      return;
+    },
+    write: function (chunk, controller) {
+      window.console.log(chunk);
+    },
+    close: function (controller) {
+      return;
+    },
+    abort: function (reason) {
+      window.console.error(reason);
+      return;
+    },
+    highWaterMark: writableHighWaterMark,
+    chunkSize: function (chunk) {
+      console.log("writable chunk:", chunk);
+      return 1;
+    },
+  });
+  window.console.error("start pipe");
+  readable.pipeTo(writable);
+  window.console.error("end pipe");
+}
+
+function runByteStreams() {
   const readableByte = new moduleStreams.AnnotatedReadableByteStream({
     start: function (controller) {
       return;
@@ -111,7 +172,6 @@ function start( [ evtWindow, moduleStreams ] ) {
       return 1;
     },
   });
-  */
   const writable = new moduleStreams.AnnotatedWritableStream({
     log: window.console.log,
     start: function (controller) {
