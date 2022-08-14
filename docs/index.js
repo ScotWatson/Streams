@@ -71,7 +71,7 @@ function start( [ evtWindow, moduleStreams ] ) {
       console.error(reason);
       return;
     },
-    highWaterMark: 1,
+    highWaterMark: 5,
     chunkSize: function (chunk) {
       return 1;
     },
@@ -87,7 +87,7 @@ function start( [ evtWindow, moduleStreams ] ) {
       console.error(reason);
       return;
     },
-    highWaterMark: 1,
+    highWaterMark: 5,
     chunkSize: function (chunk) {
       return 1;
     },
@@ -106,7 +106,7 @@ function start( [ evtWindow, moduleStreams ] ) {
       console.error(reason);
       return;
     },
-    highWaterMark: 1,
+    highWaterMark: 5,
     chunkSize: function (chunk) {
       return 1;
     },
