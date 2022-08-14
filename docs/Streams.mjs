@@ -108,6 +108,7 @@ export class AnnotatedReadableStream extends ReadableStream {
     };
     const queuingStrategy = {
       highWaterMark: objArgs.highWaterMark,
+      /*
       size: function (chunk) {
         console.log("ReadableStream chunkSize called");
         if (typeof objArgs.chunkSize === "function") {
@@ -115,6 +116,7 @@ export class AnnotatedReadableStream extends ReadableStream {
         }
         return;
       }
+      */
     };
     super(underlyingSource, queuingStrategy);
   }
