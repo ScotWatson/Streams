@@ -32,27 +32,34 @@ function fail(e) {
 function start( [ evtWindow, moduleStreams ] ) {
   const selectReadableObject = document.createElement("select");
   document.body.appendChild(selectReadableObject);
-  const optionRandomNumber = document.createElement("option");
-  optionRandomNumber.innerHTML = "Random Number";
-  optionRandomNumber.setAttribute("value", "Number");
-  selectReadableObject.appendChild(optionRandomNumber);
   const optionRandomObject = document.createElement("option");
   optionRandomObject.innerHTML = "Random Object";
   optionRandomObject.setAttribute("value", "Number");
   selectReadableObject.appendChild(optionRandomObject);
+  const optionRandomObject = document.createElement("option");
+  optionRandomObject.innerHTML = "Random Character";
+  optionRandomObject.setAttribute("value", "Character");
+  selectReadableObject.appendChild(optionRandomObject);
+  const optionRandomNumber = document.createElement("option");
+  optionRandomNumber.innerHTML = "Random Number";
+  optionRandomNumber.setAttribute("value", "Number");
+  selectReadableObject.appendChild(optionRandomNumber);
   const readable = new moduleStreams.AnnotatedReadableStream({
     start: function (controller) {
       return;
     },
     pull: function (controller) {
       switch (selectReadableObject.value) {
-        case "Number":
-          controller.enqueue(Math.random());
+        case "Character":
+          controller.enqueue(String.fromCharCode(Math.random() * 0x60 + 0x20));
           break;
         case "Object":
           controller.enqueue({
             value: Math.random(),
           });
+          break;
+        case "Number":
+          controller.enqueue(Math.random());
           break;
         default:
           controller.error("Invalid Selection");
