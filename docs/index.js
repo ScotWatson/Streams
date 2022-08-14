@@ -61,6 +61,7 @@ function start( [ evtWindow, moduleStreams ] ) {
       switch (selectReadableObject.value) {
         case "Character":
           controller.enqueue(String.fromCharCode(Math.random() * 0x60 + 0x20));
+          controller.enqueue(String.fromCharCode(Math.random() * 0x60 + 0x20));
           break;
         case "Object":
           controller.enqueue({
