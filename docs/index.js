@@ -105,6 +105,7 @@ function start( [ evtWindow, moduleStreams ] ) {
   });
   */
   const writable = new moduleStreams.AnnotatedWritableStream({
+    log: window.console.log,
     start: function (controller) {
       return;
     },
