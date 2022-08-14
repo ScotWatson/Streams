@@ -82,6 +82,8 @@ export class Sequencer extends WritableStream {
 export class AnnotatedReadableStream extends ReadableStream {
   constructor(objArgs) {
     const underlyingSource = {
+      type: "bytes",
+      autoAllocateChunkSize: 1,
       start: function (controller) {
         console.log("ReadableStream start called");
         if (typeof objArgs.start === "function") {
@@ -103,8 +105,6 @@ export class AnnotatedReadableStream extends ReadableStream {
         }
         return;
       },
-      type: "bytes",
-      autoAllocateChunkSize: 1,
     };
     const queuingStrategy = {
       highWaterMark: objArgs.highWaterMark,
