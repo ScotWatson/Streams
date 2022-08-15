@@ -36,7 +36,7 @@ let writableHighWaterMark;
 function start( [ evtWindow, moduleStreams ] ) {
   const imgBird = document.createElement("img");
   imgBird.src = "FlappingBird.gif";
-  imgBird.width = "200px";
+  imgBird.style.width = "200px";
   document.body.appendChild(imgBird);
   document.body.appendChild(document.createElement("br"));
   const selectReadableObject = document.createElement("select");
