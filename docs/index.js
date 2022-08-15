@@ -146,9 +146,26 @@ function start( [ evtWindow, moduleStreams ] ) {
         return 1;
       },
     });
-    window.console.error("start pipe");
+    window.console.log("start pipe");
     readable.pipeTo(writable);
-    window.console.error("end pipe");
+    window.console.log("end pipe");
+    Promise.resolve().then(test1).then(test2).then(test3).then(test4).then(test5);
+    function test1() {
+      window.console.log("test1");
+    }
+    function test2() {
+      window.console.log("test2");
+    }
+    function test3() {
+      window.console.log("test3");
+    }
+    function test4() {
+      window.console.log("test4");
+    }
+    function test5() {
+      window.console.log("test5");
+    }
+    window.console.log("end setup");
   }
   function runByteStreams() {
     const readableByte = new moduleStreams.AnnotatedReadableByteStream({
