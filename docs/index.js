@@ -5,7 +5,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 const initPageTime = performance.now();
 
-const loadStreamsModule = import("https://scotwatson.github.io/Streams/Streams.mjs");
+const loadStreamsModule = import("https://scotwatson.github.io/Streams/W3C_Streams.mjs");
 
 loadStreamsModule.then(function (module) {
   console.log(Object.getOwnPropertyNames(module));
