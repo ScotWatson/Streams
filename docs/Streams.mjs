@@ -5,201 +5,55 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 import * as Sequence from "https://scotwatson.github.io/Sequence/Sequence.mjs";
 
-export class RandomReadableStream extends ReadableStream {
-  constructor() {
-    const underlyingSource = {
-      start: function (controller) {
-        return;
-      },
-      pull: function (controller) {
-        controller.enqueue(Math.random());
-        return;
-      },
-      cancel: function (reason) {
-        return;
-      },
-    };
-    const queuingStrategy = {
-      highWaterMark: 1,
-      size: function (chunk) {
-        return 1;
+export class PushSinkSpeaker extends EventTarget {
+  #ac;
+  #timeInterval;
+  #lastStartTime;
+  #minQueueSize;
+  #maxQueueSize;
+  #queue;
+  constructor(args) {
+    if (!args.hasOwnProperty("timeInterval")) {
+      throw new Error("timeInterval is required.");
+    }
+    this.#ac = new window.AudioContext();
+    this.#timeInterval = args.timeInterval;
+    this.#lastStartTime = this.#ac.currentTime;
+    this.#queue = new Queue({
+      class: window.AudioBuffer,
+      length: 10,
+    });
+    self.setInterval(function (evt) {
+      const bufferSourceNode = this.#ac.createBufferSource();
+      try {
+        bufferSourceNode.buffer = this.#queue.dequeue();
+      } catch (e) {
+        this.dispatchEvent(new Event("buffering"));
       }
+      bufferSourceNode.connect(this.#ac.destination);
+      this.#lastStartTime += args.timeInterval;
+      bufferSourceNode.start(this.#lastStartTime);
+    });
+  }
+  enqueue(args) {
+    const frameCount = this.#timeInterval * this.#ac.sampleRate;
+    const myAudioBuffer = this.#ac.createBuffer(2, frameCount, this.#ac.sampleRate);
+    const leftFloat32View = myAudioBuffer.getChannelData(0);
+    const rightFloat32View = myAudioBuffer.getChannelData(1);
+    this.#queue.enqueue(myAudioBuffer);
+    return {
+      leftChannel: leftFloat32View,
+      rightChannel: rightFloat32View,
     };
-    super(underlyingSource, queuingStrategy);
   }
 };
 
-export class RandomReadableByteStream extends ReadableStream {
+export class SpeechGenerator extends EventTarget {
+  #phase;
   constructor() {
-    const underlyingSource = {
-      type: "bytes",
-      autoAllocateChunkSize: 1,
-      start: function (controller) {
-        return;
-      },
-      pull: function (controller) {
-        const view = new Uint8Array(1);
-        crypto.getRandomValues(view);
-        controller.enqueue(view);
-        return;
-      },
-      cancel: function (reason) {
-        return;
-      },
-    };
-    const queuingStrategy = {
-      highWaterMark: 1,
-    };
-    super(underlyingSource, queuingStrategy);
-  }
-};
-
-export class Sequencer extends WritableStream {
-  output;
-  constructor() {
-    output = new Sequence.Sequence();
-    const underlyingSink = {
-      start: function (controller) {
-      },
-      write: function (chunk, controller) {
-        output.push(chunk);
-      },
-      close: function (controller) {
-      },
-      abort: function (reason) {
-      },
-    };
-    const queuingStrategy = {
-      highWaterMark: 1,
+    for (let i = 0; i < 20; ++i) {
+      Math.cos(i * this.#phase);
     }
-    super(underlyingSink, queuingStrategy);
-  }
-};
-
-export class AnnotatedReadableStream extends ReadableStream {
-  constructor(objArgs) {
-    if (typeof objArgs.log !== "function") {
-      throw new Error("log function must be provided.");
-    }
-    const underlyingSource = {
-      start: function (controller) {
-        objArgs.log("ReadableStream start called");
-        if (typeof objArgs.start === "function") {
-          objArgs.start(controller);
-        }
-        return;
-      },
-      pull: function (controller) {
-        objArgs.log("ReadableStream pull called");
-        if (typeof objArgs.pull === "function") {
-          objArgs.pull(controller);
-        }
-        return;
-      },
-      cancel: function (reason) {
-        objArgs.log("ReadableStream cancel called");
-        if (typeof objArgs.cancel === "function") {
-          objArgs.cancel(reason);
-        }
-        return;
-      },
-    };
-    const queuingStrategy = {
-      highWaterMark: objArgs.highWaterMark,
-      size: function (chunk) {
-        objArgs.log("ReadableStream chunkSize called");
-        if (typeof objArgs.chunkSize === "function") {
-          return objArgs.chunkSize(chunk);
-        }
-        return 1;
-      }
-    };
-    super(underlyingSource, queuingStrategy);
-  }
-};
-
-export class AnnotatedReadableByteStream extends ReadableStream {
-  constructor(objArgs) {
-    if (typeof objArgs.log !== "function") {
-      throw new Error("log function must be provided.");
-    }
-    const underlyingSource = {
-      type: "bytes",
-      autoAllocateChunkSize: 1,
-      start: function (controller) {
-        objArgs.log("ReadableByteStream start called");
-        if (typeof objArgs.start === "function") {
-          objArgs.start(controller);
-        }
-        return;
-      },
-      pull: function (controller) {
-        objArgs.log("ReadableByteStream pull called");
-        if (typeof objArgs.pull === "function") {
-          objArgs.pull(controller);
-        }
-        return;
-      },
-      cancel: function (reason) {
-        objArgs.log("ReadableByteStream cancel called");
-        if (typeof objArgs.cancel === "function") {
-          objArgs.cancel(reason);
-        }
-        return;
-      },
-    };
-    const queuingStrategy = {
-      highWaterMark: objArgs.highWaterMark,
-    };
-    super(underlyingSource, queuingStrategy);
-  }
-};
-
-export class AnnotatedWritableStream extends WritableStream {
-  constructor(objArgs) {
-    if (typeof objArgs.log !== "function") {
-      throw new Error("log function must be provided.");
-    }
-    const underlyingSink = {
-      start: function (controller) {
-        objArgs.log("WritableStream start called");
-        if (typeof objArgs.start === "function") {
-          objArgs.start(controller);
-        }
-        return;
-      },
-      write: function (chunk, controller) {
-        objArgs.log("WritableStream write called");
-        if (typeof objArgs.write === "function") {
-          objArgs.write(chunk, controller);
-        }
-        return;
-      },
-      close: function (controller) {
-        objArgs.log("WritableStream close called");
-        if (typeof objArgs.close === "function") {
-          objArgs.close(controller);
-        }
-        return;
-      },
-      abort: function (reason) {
-        objArgs.log("WritableStream abort called");
-        if (typeof objArgs.abort === "function") {
-          objArgs.abort(reason);
-        }
-        return;
-      },
-    };
-    const queuingStrategy = {
-      highWaterMark: objArgs.highWaterMark,
-      size: function (chunk) {
-        objArgs.log("WritableStream chunkSize called");
-        if (typeof objArgs.chunkSize === "function") {
-          return objArgs.chunkSize(chunk);
-        }
-        return 1;
-      }
-    };
-    super(underlyingSink, queuingStrategy);
+    this.#phase += deltaPhase;
   }
 };
