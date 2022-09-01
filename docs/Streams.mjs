@@ -3,7 +3,7 @@
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import * as Sequence from "https://scotwatson.github.io/Sequence/Sequence.mjs";
+import * as Queue from "https://scotwatson.github.io/Queue/Queue.mjs";
 
 export class PushSinkSpeaker extends EventTarget {
   #ac;
@@ -19,7 +19,7 @@ export class PushSinkSpeaker extends EventTarget {
     this.#ac = new window.AudioContext();
     this.#timeInterval = args.timeInterval;
     this.#lastStartTime = this.#ac.currentTime;
-    this.#queue = new Queue({
+    this.#queue = new Queue.Queue({
       class: window.AudioBuffer,
       length: 10,
     });
@@ -48,12 +48,46 @@ export class PushSinkSpeaker extends EventTarget {
   }
 };
 
-export class SpeechGenerator extends EventTarget {
-  #phase;
-  constructor() {
-    for (let i = 0; i < 20; ++i) {
-      Math.cos(i * this.#phase);
+export class LowPassWhiteNoise extends EventTarget {
+  #samplesPerIteration;
+  #bufferQueue;
+  #x1 = 0;
+  #x2 = 0;
+  #y1 = 0;
+  #y2 = 0;
+  constructor(args) {
+    function sendSamples() {
+      for (let i = 0; i < this.#samplesPerIteration; ++i) {
+        const x0 = (2 * Math.random()) - 1;
+        const y0 = 1.08 * x0 + 1.65 * this.#x1 + 0.86 * this.#x2 - 1.70 * this.#y1 - 0.72 * this.#y2;
+        this.#bufferQueue.addElement(y0);
+        this.#x2 = this.#x1;
+        this.#x1 = x0;
+        this.#y2 = this.#y1;
+        this.#y1 = y0;
+      }
     }
-    this.#phase += deltaPhase;
+    self.setInterval(sendSamples, 100);
+  }
+  new Event();
+  this.dispatchEvent();
+};
+
+export class BufferQueue {
+  #getBufferFunction;
+  #thisBuffer;
+  #index;
+  constructor(args) {
+    this.#getBufferFunction = args.getBufferFunction;
+    this.#thisBuffer = this.#getBufferFunction();
+    this.#index = 0;
+  }
+  addElement(args) {
+    this.#thisBuffer[this.#index] = args;
+    ++this.#index;
+    if (this.#index === this.#thisBuffer.length) {
+      this.#thisBuffer = this.#getBufferFunction();
+      this.#index = 0;
+    }
   }
 };
