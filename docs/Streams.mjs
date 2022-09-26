@@ -5,3 +5,35 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 import * as Queue from "https://scotwatson.github.io/Queue/Queue.mjs";
 
+export class Pipe extends self.EventTarget {
+  #queue;
+  #source;
+  constructor(args) {
+    this.#queue = new Queue.Queue();
+    this.#source = args.source;
+    this.#source.addEventListener("data-available", enqueuer);
+  }
+  dequeue() {
+    
+  }
+  function enqueuer(evt) {
+    this.#queue.enqueue(evt.data);
+  }
+};
+
+export class DataPipe extends self.EventTarget {
+  #queue;
+  #source;
+  constructor(args) {
+    this.#queue = new Queue.DataQueue();
+    this.#source = args.source;
+    this.#source.addEventListener("data-available", enqueuer);
+  }
+  dequeue() {
+    
+  }
+  function enqueuer(evt) {
+    const reserveView = this.#queue.reserve(evt.data.length);
+    reserveView.set(evt.data);
+  }
+};
