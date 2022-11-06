@@ -559,7 +559,10 @@ export class ReadableStreamSource extends PullSource {
         throw "Argument \"readableStream\" must be unlocked.";
       }
       const reader = readableStream.getReader();
-      super(createStaticAsyncFunc(reader, reader.read));
+      super(async function () {
+        const [done, value] = await createStaticAsyncFunc(reader, reader.read);
+        return value;
+      });
       this.#reader = reader;
     } catch (e) {
       ErrorLog.rethrow({
@@ -590,7 +593,9 @@ export class WritableStreamSink extends PushSink {
         throw "Argument \"writableStream\" must be unlocked.";
       }
       const writer = writableStream.getWriter();
-      super(createStaticAsyncFunc(writer, writer.write));
+      super(async function () {
+        return await createStaticAsyncFunc(writer, writer.write);
+      });
       this.#writer = writer;
     } catch (e) {
       ErrorLog.rethrow({
