@@ -560,7 +560,7 @@ export class ReadableStreamSource extends PullSource {
       }
       const reader = readableStream.getReader();
       super(async function (...args) {
-        const { done, value } = await createStaticAsyncFunc(reader, reader.read)(args);
+        const { done, value } = await createStaticAsyncFunc(reader, reader.read)(...args);
         return value;
       });
       this.#reader = reader;
@@ -594,7 +594,7 @@ export class WritableStreamSink extends PushSink {
       }
       const writer = writableStream.getWriter();
       super(async function (...args) {
-        return await createStaticAsyncFunc(writer, writer.write)(args);
+        return await createStaticAsyncFunc(writer, writer.write)(...args);
       });
       this.#writer = writer;
     } catch (e) {
