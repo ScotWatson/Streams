@@ -52,7 +52,9 @@ async function start( [ evtWindow, ErrorLog, Streams ] ) {
         return;
       },
       pull: function (controller) {
-        controller.enqueue(Math.random());
+        const item = Math.random();
+        console.log(item);
+        controller.enqueue(item);
         return;
       },
       cancel: function (reason) {
