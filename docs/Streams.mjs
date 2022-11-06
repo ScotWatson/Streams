@@ -393,6 +393,7 @@ export class PullSink extends self.EventTarget {
         throw "Argument \"push\" must be invocable.";
       }
       this.#callbackPush = push;
+      this.#puller = null;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PullSink constructor",
@@ -462,6 +463,7 @@ export class PullSource {
         throw "Argument \"pull\" must be invocable.";
       }
       this.#callbackPull = pull;
+      this.#puller = null;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PullSource constructor",
@@ -510,6 +512,7 @@ export class PushSink {
         throw "Argument \"push\" must be invocable.";
       }
       this.#callbackPush = push;
+      this.#pusher = null;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PushSink constructor",
