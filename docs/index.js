@@ -95,5 +95,4 @@ async function start( [ evtWindow, ErrorLog, Streams ] ) {
       error: e,
     });
   }
- }
 }
