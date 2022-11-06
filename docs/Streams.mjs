@@ -38,9 +38,9 @@ class Pusher {
       });
     }
   }
-  async push() {
+  async push(item) {
     try {
-      return this.#callbackPush();
+      return this.#callbackPush(item);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "Pusher.push",
