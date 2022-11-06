@@ -458,7 +458,7 @@ export class PullSource {
       } else {
         pull = args;
       }
-      if (!(Types.isInvocable(push))) {
+      if (!(Types.isInvocable(pull))) {
         throw "Argument \"pull\" must be invocable.";
       }
       this.#callbackPull = pull;
