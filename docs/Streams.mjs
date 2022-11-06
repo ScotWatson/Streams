@@ -62,7 +62,6 @@ class Pusher {
 
 class Puller {
   #callbackPull;
-  #callbackRelease;
   constructor(args) {
     try {
       if (Types.isSimpleObject(args)) {
@@ -202,7 +201,6 @@ export class Pump {
         this.#puller.release();
       }
       this.#puller = newPuller;
-      console.log(this.#puller);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "Pump.setSource",
@@ -263,7 +261,6 @@ export class Pump {
   }
   async execute() {
     try {
-      console.log(this.#puller);
       if (this.#puller === null) {
         throw "Source must be non-null.";
       }
