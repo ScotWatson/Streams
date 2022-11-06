@@ -264,7 +264,7 @@ export class Pump {
       if (this.#puller === null) {
         throw "Source must be non-null.";
       }
-      const item = this.#puller.pull();
+      const item = await this.#puller.pull();
       console.log(item);
       for (const [ _, pusher] of this.#pushers) {
         pusher.push(item);
