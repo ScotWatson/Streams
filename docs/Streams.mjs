@@ -191,7 +191,7 @@ export class Pump {
       if (!("getPuller" in newSource)) {
         throw "Argument \"source\" must provide a getPuller function. (It must be a pull source.)";
       }
-      if (!(Types.isInvokable(newSource.getPuller))) {
+      if (!(Types.isInvocable(newSource.getPuller))) {
         throw "\"source.getPuller\" must be a function.";
       }
       const newPuller = newSource.getPuller();
@@ -223,7 +223,7 @@ export class Pump {
       if (!("getPusher" in newSink)) {
         throw "Argument \"sink\" must provide a getPusher function. (It must be a push sink.)";
       }
-      if (!(Types.isInvokable(newSink.getPusher))) {
+      if (!(Types.isInvocable(newSink.getPusher))) {
         throw "\"sink.getPusher\" must be a function.";
       }
       const newPusher = newSink.getPusher();
@@ -322,7 +322,7 @@ export class PushSource extends self.EventTarget {
       if (!("getPusher" in newSink)) {
         throw "Argument \"sink\" must provide a getPusher function. (It must be a push sink.)";
       }
-      if (!(Types.isInvokable(newSink.getPusher))) {
+      if (!(Types.isInvocable(newSink.getPusher))) {
         throw "\"sink.getPusher\" must be a function.";
       }
       const newPusher = newSink.getPusher();
@@ -411,7 +411,7 @@ export class PullSink extends self.EventTarget {
       if (!("getPuller" in newSource)) {
         throw "Argument \"source\" must provide a getPuller function.";
       }
-      if (!(Types.isInvokable(newSource.getPuller))) {
+      if (!(Types.isInvocable(newSource.getPuller))) {
         throw "\"source.getPuller\" must be a function.";
       }
       const newPuller = newSource.getPuller();
