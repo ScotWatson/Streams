@@ -48,7 +48,7 @@ class Pusher {
       });
     }
   }
-  reset() {
+  release() {
     // This function only perfroms an assignment operation, so there is no possibility of throwing an error.
     this.#callbackPush = pushError;
   }
@@ -90,7 +90,7 @@ class Puller {
       });
     }
   }
-  reset() {
+  release() {
     // This function only perfroms an assignment operation, so there is no possibility of throwing an error.
     this.#callbackPull = pullError;
   }
@@ -123,7 +123,7 @@ export class Pipe extends self.EventTarget {
       const newPusher = new Pusher({
         callbackPush: createStaticAsyncFunc(this, this.#push),
       });
-      this.#pusher.reset();
+      this.#pusher.release();
       this.#pusher = newPusher;
       return this.#pusher;
     } catch (e) {
@@ -144,7 +144,7 @@ export class Pipe extends self.EventTarget {
       const newPuller = new Puller({
         callbackPull: createStaticAsyncFunc(this, this.#pull),
       });
-      this.#puller.reset();
+      this.#puller.release();
       this.#puller = newPuller;
       return this.#puller;
     } catch (e) {
@@ -199,7 +199,7 @@ export class Pump {
         throw "\"source.getPuller()\" must return a Puller. Try using a source derived from the Streams library.";
       }
       if (this.#puller !== null) {
-        this.#puller.reset();
+        this.#puller.release();
       }
       this.#puller = newPuller;
     } catch (e) {
@@ -250,7 +250,7 @@ export class Pump {
         sink = args;
       }
       if (this.#pushers.has(sink)) {
-        this.#pushers.get(sink).reset();
+        this.#pushers.get(sink).release();
       }
       this.#pushers.delete(sink);
     } catch (e) {
@@ -475,7 +475,7 @@ export class PullSource {
         callbackPull: this.#callbackPull,
       });
       if (this.#puller !== null) {
-        this.#puller.reset();
+        this.#puller.release();
       }
       this.#puller = newPuller;
       return this.#puller;
@@ -523,7 +523,7 @@ export class PushSink {
         callbackPush: this.#callbackPush,
       });
       if (this.#pusher !== null) {
-        this.#pusher.reset();
+        this.#pusher.release();
       }
       this.#pusher = newPusher;
       return this.#pusher;
@@ -555,8 +555,9 @@ export class ReadableStreamSource extends PullSource {
       if (readableStream.locked) {
         throw "Argument \"readableStream\" must be unlocked.";
       }
-      this.#reader = readableStream.getReader();
-      super(createStaticAsyncFunc(this.#reader, this.#reader.read));
+      const reader = readableStream.getReader();
+      super(createStaticAsyncFunc(reader, reader.read));
+      this.#reader = reader;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "ReadableStreamSource constructor",
@@ -585,8 +586,9 @@ export class WritableStreamSink extends PushSink {
       if (writableStream.locked) {
         throw "Argument \"writableStream\" must be unlocked.";
       }
-      this.#writer = writableStream.getWriter();
-      super(createStaticAsyncFunc(this.#writer, this.#writer.write));
+      const writer = writableStream.getWriter();
+      super(createStaticAsyncFunc(writer, writer.write));
+      this.#writer = writer;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "WritableStreamSink constructor",
