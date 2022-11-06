@@ -358,7 +358,7 @@ export class PushSource extends self.EventTarget {
   async execute() {
     try {
       const item = await this.#callbackPull();
-      for (const pusher of this.#pushers) {
+      for (const [ _, pusher ] of this.#pushers) {
         await pusher.push(item);
       }
     } catch (e) {
@@ -558,10 +558,7 @@ export class ReadableStreamSource extends PullSource {
         throw "Argument \"readableStream\" must be unlocked.";
       }
       const reader = readableStream.getReader();
-      super(async function (...args) {
-        console.log("read");
-        return await createStaticAsyncFunc(reader, reader.read)(args);
-      });
+      super(createStaticAsyncFunc(reader, reader.read));
       this.#reader = reader;
     } catch (e) {
       ErrorLog.rethrow({
@@ -592,10 +589,7 @@ export class WritableStreamSink extends PushSink {
         throw "Argument \"writableStream\" must be unlocked.";
       }
       const writer = writableStream.getWriter();
-      super(async function (...args) {
-        console.log("write");
-        return await createStaticAsyncFunction(writer, writer.write)(args);
-      });
+      super(createStaticAsyncFunction(writer, writer.write));
       this.#writer = writer;
     } catch (e) {
       ErrorLog.rethrow({
