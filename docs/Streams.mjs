@@ -560,7 +560,7 @@ export class ReadableStreamSource extends PullSource {
       }
       const reader = readableStream.getReader();
       super(async function (...args) {
-        const [done, value] = await createStaticAsyncFunc(reader, reader.read)(args);
+        const { done, value } = await createStaticAsyncFunc(reader, reader.read)(args);
         return value;
       });
       this.#reader = reader;
