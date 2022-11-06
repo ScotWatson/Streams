@@ -265,7 +265,6 @@ export class Pump {
         throw "Source must be non-null.";
       }
       const item = await this.#puller.pull();
-      console.log(item);
       for (const [ _, pusher] of this.#pushers) {
         pusher.push(item);
       }
@@ -593,9 +592,7 @@ export class WritableStreamSink extends PushSink {
         throw "Argument \"writableStream\" must be unlocked.";
       }
       const writer = writableStream.getWriter();
-      super(async function (...args) {
-        return await createStaticAsyncFunc(writer, writer.write)(...args);
-      });
+      super(createStaticAsyncFunc(writer, writer.write));
       this.#writer = writer;
     } catch (e) {
       ErrorLog.rethrow({
