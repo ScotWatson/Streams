@@ -282,7 +282,7 @@ export class Pump {
 export class PushSource extends self.EventTarget {
   #callbackPull;
   #pushers;
-  constructor() {
+  constructor(args) {
     try {
       if (this.constructor === PushSource) {
         throw "PushSource is an abstract class.";
@@ -443,7 +443,7 @@ export class PullSink extends self.EventTarget {
 export class PullSource {
   #puller;
   #callbackPull;
-  constructor() {
+  constructor(args) {
     try {
       if (this.constructor === PullSource) {
         throw "PullSource is an abstract class.";
