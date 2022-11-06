@@ -262,7 +262,7 @@ export class Pump {
   }
   async execute() {
     try {
-      if (!(Types.isInvocable(this.#puller)) {
+      if (!(Types.isInvocable(this.#puller))) {
         throw "Source must be non-null.";
       }
       const item = this.#puller.pull();
