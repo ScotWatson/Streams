@@ -13,6 +13,12 @@ function createStaticFunc(thisObj, func) {
   });
 }
 
+function createStaticAsyncFunc(thisObj, asyncFunc) {
+  return (async function (...args) {
+    return await asyncFunc.apply(thisObj, args);
+  });
+}
+
 class Pusher {
   #callbackPush;
   constructor(args) {
@@ -25,7 +31,6 @@ class Pusher {
       if (!(Types.isInvocable(this.#callbackPush))) {
         throw "Argument \"callbackPush\" must be invocable.";
       }
-      this.reset = createStaticFunc(this, this.#reset);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "Pusher constructor",
@@ -33,7 +38,7 @@ class Pusher {
       });
     }
   }
-  push() {
+  async push() {
     try {
       return this.#callbackPush();
     } catch (e) {
@@ -43,11 +48,11 @@ class Pusher {
       });
     }
   }
-  #reset() {
+  reset() {
     // This function only perfroms an assignment operation, so there is no possibility of throwing an error.
     this.#callbackPush = pushError;
   }
-  static pushError() {
+  static async pushError() {
     ErrorLog.rethrow({
       functionName: "Pusher.push",
       error: "Pusher has been disconnected from its sink.",
@@ -60,8 +65,14 @@ class Puller {
   #callbackRelease;
   constructor(args) {
     try {
-      this.#callbackPull = args.callbackPull;
-      this.reset = createStaticFunc(this, this.#reset);
+      if (Types.isSimpleObject(args)) {
+        this.#callbackPull = args.callbackPull;
+      } else {
+        this.#callbackPull = args;
+      }
+      if (!(Types.isInvocable(this.#callbackPull))) {
+        throw "Argument \"callbackPull\" must be invocable.";
+      }
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "Puller constructor",
@@ -69,7 +80,7 @@ class Puller {
       });
     }
   }
-  pull() {
+  async pull() {
     try {
       return this.#callbackPull();
     } catch (e) {
@@ -79,11 +90,11 @@ class Puller {
       });
     }
   }
-  #reset() {
+  reset() {
     // This function only perfroms an assignment operation, so there is no possibility of throwing an error.
     this.#callbackPull = pullError;
   }
-  static pullError() {
+  static async pullError() {
     ErrorLog.rethrow({
       functionName: "Puller.pull",
       error: "Puller has been disconnected from its source.",
@@ -110,7 +121,7 @@ export class Pipe extends self.EventTarget {
   getPusher() {
     try {
       const newPusher = new Pusher({
-        callbackPush: createStaticFunc(this, this.#push),
+        callbackPush: createStaticAsyncFunc(this, this.#push),
       });
       this.#pusher.reset();
       this.#pusher = newPusher;
@@ -122,7 +133,7 @@ export class Pipe extends self.EventTarget {
       });
     }
   }
-  #push(item) {
+  async #push(item) {
     if (this.#queue.isFull()) {
       this.dispatchEvent("buffer-full");
     }
@@ -131,7 +142,7 @@ export class Pipe extends self.EventTarget {
   getPuller() {
     try {
       const newPuller = new Puller({
-        callbackPull: createStaticFunc(this, this.#pull),
+        callbackPull: createStaticAsyncFunc(this, this.#pull),
       });
       this.#puller.reset();
       this.#puller = newPuller;
@@ -143,7 +154,7 @@ export class Pipe extends self.EventTarget {
       });
     }
   }
-  #pull() {
+  async #pull() {
     if (this.#queue.isEmpty()) {
       this.dispatchEvent("buffer-empty");
     }
@@ -249,9 +260,9 @@ export class Pump {
       });
     }
   }
-  execute() {
+  async execute() {
     try {
-      if (!(Types.isInvokable(this.#puller)) {
+      if (!(Types.isInvocable(this.#puller)) {
         throw "Source must be non-null.";
       }
       const item = this.#puller.pull();
@@ -269,6 +280,7 @@ export class Pump {
 
 // Active, accepts a pusher
 export class PushSource extends self.EventTarget {
+  #callbackPull;
   #pushers;
   constructor() {
     try {
@@ -276,6 +288,19 @@ export class PushSource extends self.EventTarget {
         throw "PushSource is an abstract class.";
       }
       this.#pushers = new Map();
+      let pull;
+      if (Types.isSimpleObject(args)) {
+        if (!(Object.hasOwn(args, "pull"))) {
+          throw "Argument \"pull\" must be provided.";
+        }
+        pull = args.pull;
+      } else {
+        pull = args;
+      }
+      if (!(Types.isInvocable(pull))) {
+        throw "Argument \"pull\" must be invocable.";
+      }
+      this.#callbackPull = pull;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PushSource constructor",
@@ -331,11 +356,11 @@ export class PushSource extends self.EventTarget {
       });
     }
   }
-  execute() {
+  async execute() {
     try {
-      const item = this.pull();
+      const item = await this.#callbackPull();
       for (const pusher of this.#pushers) {
-        pusher.push(item);
+        await pusher.push(item);
       }
     } catch (e) {
       ErrorLog.rethrow({
@@ -344,22 +369,30 @@ export class PushSource extends self.EventTarget {
       });
     }
   }
-  pull() {
-    ErrorLog.rethrow({
-      functionName: "PushSource.pull",
-      error: "PushSource.pull must be implemented.",
-    });
-  }
 };
 
 // Active, accepts a puller
 export class PullSink extends self.EventTarget {
+  #callbackPush;
   #puller;
-  constructor() {
+  constructor(args) {
     try {
       if (this.constructor === PullSink) {
         throw "PullSink is an abstract class.";
       }
+      let push;
+      if (Types.isSimpleObject(args)) {
+        if (!(Object.hasOwn(args, "push"))) {
+          throw "Argument \"push\" must be provided.";
+        }
+        push = args.pull;
+      } else {
+        push = args;
+      }
+      if (!(Types.isInvocable(push))) {
+        throw "Argument \"push\" must be invocable.";
+      }
+      this.#callbackPush = push;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PullSink constructor",
@@ -393,10 +426,10 @@ export class PullSink extends self.EventTarget {
       });
     }
   }
-  execute() {
+  async execute() {
     try {
-      const item = this.puller.pull();
-      this.push(item);
+      const item = await this.puller.pull();
+      await this.callbackPush(item);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PullSink.execute",
@@ -404,23 +437,31 @@ export class PullSink extends self.EventTarget {
       });
     }
   }
-  push() {
-    ErrorLog.rethrow({
-      functionName: "PullSink.push",
-      error: "PullSink.push must be implemented.",
-    });
-  }
 };
 
 // Passive
 export class PullSource {
   #puller;
+  #callbackPull;
   constructor() {
     try {
       if (this.constructor === PullSource) {
         throw "PullSource is an abstract class.";
       }
       this.#puller = null;
+      let pull;
+      if (Types.isSimpleObject(args)) {
+        if (!(Object.hasOwn(args, "pull"))) {
+          throw "Argument \"pull\" must be provided.";
+        }
+        pull = args.pull;
+      } else {
+        pull = args;
+      }
+      if (!(Types.isInvocable(push))) {
+        throw "Argument \"pull\" must be invocable.";
+      }
+      this.#callbackPull = pull;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PullSource constructor",
@@ -431,7 +472,7 @@ export class PullSource {
   getPuller() {
     try {
       const newPuller = new Puller({
-        callbackPull: createStaticFunc(this, this.pull),
+        callbackPull: this.#callbackPull,
       });
       if (this.#puller !== null) {
         this.#puller.reset();
@@ -445,118 +486,112 @@ export class PullSource {
       });
     }
   }
-  pull() {
-    ErrorLog.rethrow({
-      functionName: "PullSource.pull",
-      error: "PullSource.pull must be implemented.",
-    });
-  }
 };
 
 // Passive
 export class PushSink {
   #pusher;
-  constructor() {
-    if (this.constructor === PushSink) {
+  #callbackPush;
+  constructor(args) {
+    try {
+      if (this.constructor === PushSink) {
+        throw "PushSink is an abstract class.";
+      }
+      let push;
+      if (Types.isSimpleObject(args)) {
+        if (!(Object.hasOwn(args, "push"))) {
+          throw "Argument \"push\" must be provided.";
+        }
+        push = args.push;
+      } else {
+        push = args;
+      }
+      if (!(Types.isInvocable(push))) {
+        throw "Argument \"push\" must be invocable.";
+      }
+      this.#callbackPush = push;
+    } catch (e) {
       ErrorLog.rethrow({
         functionName: "PushSink constructor",
-        error: "PushSink is an abstract class.",
+        error: e,
       });
     }
   }
   getPusher() {
-    const thisObj = this;
-    this.#pusher = new Pusher({
-      callbackPush: function (item) {
-        thisObj.push();
-      },
-      callbackRelease: function () {
-        this.#pusher = null;
-      },
-    });
-    return this.#pusher;
-  }
-  push() {
-    ErrorLog.rethrow({
-      functionName: "PushSink.push",
-      error: "PushSink.push must be implemented.",
-    });
+    try {
+      const newPusher = new Pusher({
+        callbackPush: this.#callbackPush,
+      });
+      if (this.#pusher !== null) {
+        this.#pusher.reset();
+      }
+      this.#pusher = newPusher;
+      return this.#pusher;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PushSink.getPusher",
+        error: e,
+      });
+    }
   }
 };
 
-// Pull Source
-export class ReadableStreamSource extends self.EventTarget {
-  #readableStream;
+export class ReadableStreamSource extends PullSource {
+  #reader;
   constructor(args) {
     try {
-      if (!(Types.isSimpleObject(args))) {
-        throw "Arguments must be a simple object.";
+      let readableStream;
+      if (Types.isSimpleObject(args)) {
+        if (Object.hasOwn(args, "readableStream")) {
+          throw "Argument \"readableStream\" must be provided.";
+        }
+        readableStream = args.readableStream;
+      } else {
+        readableStream = args;
       }
-      if (!(args.readableStream instanceof self.ReadableStream)) {
-        throw "readableStream must be of type self.ReadableStream.";
+      if (!(readableStream instanceof self.ReadableStream)) {
+        throw "Argument \"readableStream\" must be of type self.ReadableStream.";
       }
-      this.#readableStream = args.readableStream;
-      if (this.#readableStream.locked) {
-        throw "readableStream must be unlocked.";
+      if (readableStream.locked) {
+        throw "Argument \"readableStream\" must be unlocked.";
       }
       this.#reader = this.#readableStream.getReader();
+      super(createStaticAsyncFunc(this.#reader, this.#reader.read));
     } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "ReadableStreamSource constructor",
+        error: e,
+      });
     }
   }
-  async pull(queue) {
-    let result;
+};
+
+export class WritableStreamSink extends PushSink {
+  #writer;
+  constructor(args) {
     try {
-      result = await this.#reader.read();
+      let writableStream;
+      if (Types.isSimpleObject(args)) {
+        if (Object.hasOwn(args, "writableStream")) {
+          throw "Argument \"writableStream\" must be provided.";
+        }
+        writableStream = args.writableStream;
+      } else {
+        writableStream = args;
+      }
+      if (!(writableStream instanceof self.WritableStream)) {
+        throw "Argument \"writableStream\" must be of type self.WritableStream.";
+      }
+      if (writableStream.locked) {
+        throw "Argument \"writableStream\" must be unlocked.";
+      }
+      this.#writer = this.#readableStream.getWriter();
+      super(createStaticAsyncFunc(this.#writer, this.#writer.write));
     } catch (e) {
-      const evtError = new Event("error");
-      evtError.data = e;
-      this.dispatchEvent(evtError);
-      return;
+      ErrorLog.rethrow({
+        functionName: "WritableStreamSink constructor",
+        error: e,
+      });
     }
-    if (result.done) {
-      this.#reader.releaseLock();
-      this.#reader = null;
-    }
-    queue.enqueue(result.value);
-  }
-};
-
-export class Sink {
-  constructor(args) {
-  }
-};
-
-export class Pipe extends self.EventTarget {
-  #queue;
-  #source;
-  #destination;
-  constructor(args) {
-    
-    this.#queue = new Queue.Queue();
-    this.#source = args.source;
-    this.#source.addEventListener("data-available", enqueuer);
-  }
-  dequeue() {
-    
-  }
-  function enqueuer(evt) {
-    this.#queue.enqueue(evt.data);
-  }
-};
-
-export class DataPipe extends self.EventTarget {
-  #queue;
-  #source;
-  constructor(args) {
-    this.#queue = new Queue.DataQueue();
-    this.#source = args.source;
-    this.#source.addEventListener("data-available", enqueuer);
-  }
-  dequeue() {
-    
-  }
-  function enqueuer(evt) {
-    const reserveView = this.#queue.reserve(evt.data.length);
-    reserveView.set(evt.data);
   }
 };
