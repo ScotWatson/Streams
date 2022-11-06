@@ -589,7 +589,7 @@ export class WritableStreamSink extends PushSink {
         throw "Argument \"writableStream\" must be unlocked.";
       }
       const writer = writableStream.getWriter();
-      super(createStaticAsyncFunction(writer, writer.write));
+      super(createStaticAsyncFunc(writer, writer.write));
       this.#writer = writer;
     } catch (e) {
       ErrorLog.rethrow({
