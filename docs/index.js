@@ -85,7 +85,7 @@ async function start( [ evtWindow, ErrorLog, Streams ] ) {
     const writableStreamSink = new Streams.WritableStreamSink(writableStream);
     const pump = new Streams.Pump();
     pump.setSource(readableStreamSource);
-    pump.setSink(writableStreamSink);
+    pump.registerSink(writableStreamSink);
     self.setInterval(function () {
       pump.execute();
     }, 100);
