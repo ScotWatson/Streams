@@ -555,7 +555,7 @@ export class ReadableStreamSource extends PullSource {
       if (readableStream.locked) {
         throw "Argument \"readableStream\" must be unlocked.";
       }
-      this.#reader = this.#readableStream.getReader();
+      this.#reader = readableStream.getReader();
       super(createStaticAsyncFunc(this.#reader, this.#reader.read));
     } catch (e) {
       ErrorLog.rethrow({
@@ -585,7 +585,7 @@ export class WritableStreamSink extends PushSink {
       if (writableStream.locked) {
         throw "Argument \"writableStream\" must be unlocked.";
       }
-      this.#writer = this.#readableStream.getWriter();
+      this.#writer = writableStream.getWriter();
       super(createStaticAsyncFunc(this.#writer, this.#writer.write));
     } catch (e) {
       ErrorLog.rethrow({
