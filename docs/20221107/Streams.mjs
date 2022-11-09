@@ -587,7 +587,6 @@ export class ReadableStreamSource extends PullSource {
   constructor(args) {
     try {
       let readableStream;
-      super();
       if (Types.isSimpleObject(args)) {
         if (Object.hasOwn(args, "readableStream")) {
           throw "Argument \"readableStream\" must be provided.";
@@ -632,7 +631,6 @@ export class WritableStreamSink extends PushSink {
   constructor(args) {
     try {
       let writableStream;
-      super();
       if (Types.isSimpleObject(args)) {
         if (Object.hasOwn(args, "writableStream")) {
           throw "Argument \"writableStream\" must be provided.";
@@ -663,7 +661,6 @@ class DataPusher {
   #callbackPush;
   constructor(args) {
     try {
-      super();
       if (Types.isSimpleObject(args)) {
         this.#callbackPush = args.callbackPush;
       } else {
@@ -705,7 +702,6 @@ class DataPuller {
   #callbackPull;
   constructor(args) {
     try {
-      super();
       if (Types.isSimpleObject(args)) {
         this.#callbackPull = args.callbackPull;
       } else {
