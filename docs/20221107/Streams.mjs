@@ -108,6 +108,7 @@ export class Pipe extends self.EventTarget {
   #puller;
   constructor() {
     try {
+      super();
       this.#queue = new Queue.Queue({
       });
     } catch (e) {
@@ -167,6 +168,7 @@ export class Pump extends self.EventTarget {
   #pushers;
   constructor() {
     try {
+      super();
       this.#puller = null;
       this.#pushers = new Map();
     } catch (e) {
@@ -283,6 +285,7 @@ export class PushSource extends self.EventTarget {
   #pushers;
   constructor(args) {
     try {
+      super();
       if (this.constructor === PushSource) {
         throw "PushSource is an abstract class.";
       }
@@ -376,6 +379,7 @@ export class PullSink extends self.EventTarget {
   #puller;
   constructor(args) {
     try {
+      super();
       if (this.constructor === PullSink) {
         throw "PullSink is an abstract class.";
       }
@@ -444,6 +448,7 @@ export class PullSource extends self.EventTarget {
   #callbackPull;
   constructor(args) {
     try {
+      super();
       if (this.constructor === PullSource) {
         throw "PullSource is an abstract class.";
       }
@@ -515,6 +520,7 @@ export class PushSink extends self.EventTarget {
   #callbackPush;
   constructor(args) {
     try {
+      super();
       if (this.constructor === PushSink) {
         throw "PushSink is an abstract class.";
       }
@@ -581,6 +587,7 @@ export class ReadableStreamSource extends PullSource {
   constructor(args) {
     try {
       let readableStream;
+      super();
       if (Types.isSimpleObject(args)) {
         if (Object.hasOwn(args, "readableStream")) {
           throw "Argument \"readableStream\" must be provided.";
@@ -625,6 +632,7 @@ export class WritableStreamSink extends PushSink {
   constructor(args) {
     try {
       let writableStream;
+      super();
       if (Types.isSimpleObject(args)) {
         if (Object.hasOwn(args, "writableStream")) {
           throw "Argument \"writableStream\" must be provided.";
@@ -655,6 +663,7 @@ class DataPusher {
   #callbackPush;
   constructor(args) {
     try {
+      super();
       if (Types.isSimpleObject(args)) {
         this.#callbackPush = args.callbackPush;
       } else {
@@ -696,6 +705,7 @@ class DataPuller {
   #callbackPull;
   constructor(args) {
     try {
+      super();
       if (Types.isSimpleObject(args)) {
         this.#callbackPull = args.callbackPull;
       } else {
@@ -740,6 +750,7 @@ export class DataPipe extends self.EventTarget {
   #puller;
   constructor() {
     try {
+      super();
       this.#queue = new Queue.DataQueue({
       });
     } catch (e) {
@@ -799,6 +810,7 @@ export class DataPump extends self.EventTarget {
   #pushers;
   constructor() {
     try {
+      super();
       this.#puller = null;
       this.#pushers = new Map();
     } catch (e) {
@@ -915,6 +927,7 @@ export class DataPushSource extends self.EventTarget {
   #pushers;
   constructor(args) {
     try {
+      super();
       if (this.constructor === DataPushSource) {
         throw "DataPushSource is an abstract class.";
       }
@@ -1008,6 +1021,7 @@ export class DataPullSink extends self.EventTarget {
   #puller;
   constructor(args) {
     try {
+      super();
       if (this.constructor === DataPullSink) {
         throw "DataPullSink is an abstract class.";
       }
@@ -1076,6 +1090,7 @@ export class DataPullSource extends self.EventTarget {
   #callbackPull;
   constructor(args) {
     try {
+      super();
       if (this.constructor === PullSource) {
         throw "DataPullSource is an abstract class.";
       }
@@ -1147,6 +1162,7 @@ export class DataPushSink extends self.EventTarget {
   #callbackPush;
   constructor(args) {
     try {
+      super();
       if (this.constructor === DataPushSink) {
         throw "DataPushSink is an abstract class.";
       }
