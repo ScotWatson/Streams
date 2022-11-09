@@ -596,14 +596,14 @@ export class ReadableStreamSource extends PullSource {
         throw "Argument \"readableStream\" must be unlocked.";
       }
       const reader = readableStream.getReader();
-      reader.closed.then(
-        createStaticAsyncFunc(this, this.#eventClosed),
-        createStaticAsyncFunc(this, this.#eventCancelled)
-      );
       super(async function (...args) {
         const { done, value } = await createStaticAsyncFunc(reader, reader.read)(...args);
         return value;
       });
+      reader.closed.then(
+        createStaticAsyncFunc(this, this.#eventClosed),
+        createStaticAsyncFunc(this, this.#eventCancelled)
+      );
       this.#reader = reader;
     } catch (e) {
       ErrorLog.rethrow({
