@@ -87,9 +87,12 @@ async function start( [ evtWindow, ErrorLog, Streams ] ) {
     const pump = new Streams.Pump();
     pump.setSource(readableStreamSource);
     pump.registerSink(writableStreamSink);
-    self.setInterval(function () {
+    (function execute() {
+      const start = performance.now();
       pump.execute();
-    }, 100);
+      const end = performance.now();
+      setTimeout(execute, 0);
+    })();
   } catch (e) {
     ErrorLog.rethrow({
       functionName: "start",
