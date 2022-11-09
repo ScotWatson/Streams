@@ -5,7 +5,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 import * as Types from "https://scotwatson.github.io/Debug/20221107/Types.mjs";
 import * as ErrorLog from "https://scotwatson.github.io/Debug/20221107/ErrorLog.mjs";
-import * as Queue from "https://scotwatson.github.io/Queue/20221107/Queue.mjs";
+import * as Queue from "https://scotwatson.github.io/Containers/20221107/Queue.mjs";
 
 function createStaticFunc(thisObj, func) {
   return (function (...args) {
