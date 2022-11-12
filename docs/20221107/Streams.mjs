@@ -280,29 +280,11 @@ export class Pump extends self.EventTarget {
 }
 
 // Active, accepts a pusher
-export class PushSource extends self.EventTarget {
-  #callbackPull;
+export class PushSource {
   #pushers;
   constructor(args) {
     try {
-      super();
-      if (this.constructor === PushSource) {
-        throw "PushSource is an abstract class.";
-      }
       this.#pushers = new Map();
-      let pull;
-      if (Types.isSimpleObject(args)) {
-        if (!(Object.hasOwn(args, "pull"))) {
-          throw "Argument \"pull\" must be provided.";
-        }
-        pull = args.pull;
-      } else {
-        pull = args;
-      }
-      if (!(Types.isInvocable(pull))) {
-        throw "Argument \"pull\" must be invocable.";
-      }
-      this.#callbackPull = pull;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PushSource constructor",
@@ -358,9 +340,8 @@ export class PushSource extends self.EventTarget {
       });
     }
   }
-  async execute() {
+  async execute(item) {
     try {
-      const item = await this.#callbackPull();
       for (const [ _, pusher ] of this.#pushers) {
         await pusher.push(item);
       }
