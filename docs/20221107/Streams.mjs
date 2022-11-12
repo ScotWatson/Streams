@@ -496,15 +496,11 @@ export class PullSource extends self.EventTarget {
   }
 };
 
-export class PushSink extends self.EventTarget {
+export class PushSink {
   #pusher;
   #callbackPush;
   constructor(args) {
     try {
-      super();
-      if (this.constructor === PushSink) {
-        throw "PushSink is an abstract class.";
-      }
       let push;
       if (Types.isSimpleObject(args)) {
         if (!(Object.hasOwn(args, "push"))) {
