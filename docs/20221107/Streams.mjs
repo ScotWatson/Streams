@@ -7,18 +7,6 @@ import * as Types from "https://scotwatson.github.io/Debug/20221107/Types.mjs";
 import * as ErrorLog from "https://scotwatson.github.io/Debug/20221107/ErrorLog.mjs";
 import * as Queue from "https://scotwatson.github.io/Containers/20221107/Queue.mjs";
 
-function createStaticFunc(thisObj, func) {
-  return (function (...args) {
-    return func.apply(thisObj, args);
-  });
-}
-
-function createStaticAsyncFunc(thisObj, asyncFunc) {
-  return (async function (...args) {
-    return await asyncFunc.apply(thisObj, args);
-  });
-}
-
 class Pusher {
   #callbackPush;
   constructor(args) {
