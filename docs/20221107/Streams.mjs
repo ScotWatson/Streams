@@ -595,12 +595,14 @@ export class ReadableStreamSource extends PullSource {
       });
     }
   }
+  /*
   async #eventClosed() {
     this.dispatchEvent("closed");
   }
   async #eventCancelled() {
     this.dispatchEvent("cancelled");
   }
+  */
 };
 
 export class WritableStreamSink extends PushSink {
