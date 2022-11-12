@@ -109,7 +109,7 @@ export class Pipe extends self.EventTarget {
   getPusher() {
     try {
       const newPusher = new Pusher({
-        callbackPush: createStaticAsyncFunc(this, this.#push),
+        callbackPush: Types.createStaticAsyncFunc(this, this.#push),
       });
       this.#pusher.release();
       this.#pusher = newPusher;
@@ -130,7 +130,7 @@ export class Pipe extends self.EventTarget {
   getPuller() {
     try {
       const newPuller = new Puller({
-        callbackPull: createStaticAsyncFunc(this, this.#pull),
+        callbackPull: Types.createStaticAsyncFunc(this, this.#pull),
       });
       this.#puller.release();
       this.#puller = newPuller;
@@ -568,13 +568,15 @@ export class ReadableStreamSource extends PullSource {
       }
       const reader = readableStream.getReader();
       super(async function (...args) {
-        const { done, value } = await createStaticAsyncFunc(reader, reader.read)(...args);
+        const { done, value } = await Types.createStaticAsyncFunc(reader, reader.read)(...args);
         return value;
       });
+      /*
       reader.closed.then(
-        createStaticAsyncFunc(this, this.#eventClosed),
-        createStaticAsyncFunc(this, this.#eventCancelled)
+        Types.createStaticAsyncFunc(this, this.#eventClosed),
+        Types.createStaticAsyncFunc(this, this.#eventCancelled)
       );
+      */
       this.#reader = reader;
     } catch (e) {
       ErrorLog.rethrow({
@@ -613,7 +615,7 @@ export class WritableStreamSink extends PushSink {
         throw "Argument \"writableStream\" must be unlocked.";
       }
       const writer = writableStream.getWriter();
-      super(createStaticAsyncFunc(writer, writer.write));
+      super(Types.createStaticAsyncFunc(writer, writer.write));
       this.#writer = writer;
     } catch (e) {
       ErrorLog.rethrow({
@@ -726,7 +728,7 @@ export class DataPipe extends self.EventTarget {
   getPusher() {
     try {
       const newPusher = new DataPusher({
-        callbackPush: createStaticAsyncFunc(this, this.#push),
+        callbackPush: Types.createStaticAsyncFunc(this, this.#push),
       });
       this.#pusher.release();
       this.#pusher = newPusher;
@@ -747,7 +749,7 @@ export class DataPipe extends self.EventTarget {
   getPuller() {
     try {
       const newPuller = new DataPuller({
-        callbackPull: createStaticAsyncFunc(this, this.#pull),
+        callbackPull: Types.createStaticAsyncFunc(this, this.#pull),
       });
       this.#puller.release();
       this.#puller = newPuller;
@@ -1209,12 +1211,14 @@ export class DataReadableStreamSource extends PullSource {
       const reader = readableStream.getReader({
         mode: "byob",
       });
+      /*
       reader.closed.then(
-        createStaticAsyncFunc(this, this.#eventClosed),
-        createStaticAsyncFunc(this, this.#eventCancelled)
+        Types.createStaticAsyncFunc(this, this.#eventClosed),
+        Types.createStaticAsyncFunc(this, this.#eventCancelled)
       );
+      */
       super(async function (...args) {
-        const { done, value } = await createStaticAsyncFunc(reader, reader.read)(...args);
+        const { done, value } = await Types.createStaticAsyncFunc(reader, reader.read)(...args);
         return value;
       });
       this.#reader = reader;
@@ -1253,7 +1257,7 @@ export class DataWritableStreamSink extends PushSink {
         throw "Argument \"writableStream\" must be unlocked.";
       }
       const writer = writableStream.getWriter();
-      super(createStaticAsyncFunc(writer, writer.write));
+      super(Types.createStaticAsyncFunc(writer, writer.write));
       this.#writer = writer;
     } catch (e) {
       ErrorLog.rethrow({
