@@ -267,6 +267,14 @@ export class Pump extends self.EventTarget {
   }
 }
 
+export class AsyncFunctionPushSource {
+  constructor(args) {
+  }
+  execute() {
+    
+  }
+}
+
 // Active, accepts a pusher
 export class PushSource {
   #pushers;
