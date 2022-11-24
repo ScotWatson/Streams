@@ -1,3 +1,4 @@
+
 /*
 (c) 2022 Scot Watson  All Rights Reserved
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
@@ -6,6 +7,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 import * as Types from "https://scotwatson.github.io/Debug/Test/Types.mjs";
 import * as ErrorLog from "https://scotwatson.github.io/Debug/Test/ErrorLog.mjs";
 import * as Queue from "https://scotwatson.github.io/Containers/Test/Queue.mjs";
+import * as Memory from "https://scotwatson.github.io/Memory/Test/Memory.mjs";
+import * as Tasks from "https://scotwatson.github.io/Tasks/Test/Tasks.mjs";
 
 class Pusher {
   #callbackPush;
@@ -130,7 +133,7 @@ export class Pipe extends self.EventTarget {
   getPuller() {
     try {
       const newPuller = new Puller({
-        callbackPull: Types.createStaticAsyncFunc(this, this.#pull),
+        callbackPull: Types.createStaticFunc(this, this.#pull),
       });
       this.#puller.release();
       this.#puller = newPuller;
@@ -267,11 +270,108 @@ export class Pump extends self.EventTarget {
   }
 }
 
-export class AsyncFunctionPushSource {
+async function get(view) {
+  const {value, done} = await reader.read(view);
+  return value;
+}
+
+export class AsyncByteReaderPushSource {
+  #callback;
+  #chunkByteLength;
   constructor(args) {
+    let view;
+    let offset = 0;
+    let buffer = Memory.Block({
+      byteLength: this.#chunkByteLength,
+    });
+    view = new Memory.View({
+      memoryBlock: buffer,
+      byteOffset: offset,
+      byteLength: this.#chunkByteLength,
+    });
+    this.#callback(view).then(process);
+    async function process(returnedView) {
+      if (!(returnedView instanceof Memory.View)) {
+        throw "callback must return a view.";
+      }
+      offset += returnedView.byteLength;
+      if (offset < buffer.byteLength) {
+        view = new Memory.View({
+          memoryBlock: buffer,
+          byteOffset: offset,
+          byteLength: this.#chunkByteLength - offset,
+        });
+      } else {
+        offset = 0;
+        buffer = Memory.Block({
+          byteLength: this.#chunkByteLength,
+        });
+      }
+      Tasks.queueTask(function () {
+        this.#callback(view).then(process);
+      });
+    }
   }
-  execute() {
-    
+}
+
+export class AsyncFunctionPushSource {
+  #callback;
+  #sinks;
+  constructor(args) {
+    try {
+      this.#callback = args.callback;
+      this.#sinks = new Sinks();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncFunctionPushSource constructor",
+        error: e,
+      });
+    }
+  }
+  get sinks() {
+    return this.#sinks;
+  }
+  async execute() {
+    try {
+      const item = await this.#callback();
+      for (const [ _, pusher ] of this.#pushers) {
+        pusher.push(item);
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncFunctionPushSource.execute",
+        error: e,
+      });
+    }
+  }
+}
+
+export class SignalPushSource {
+  #callback;
+  #sinks;
+  constructor(args) {
+    try {
+      this.#callback = args.callback;
+      args.signal.add(Types.createStaticFunction(this.#execute, this));
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "SignalPushSource constructor",
+        error: e,
+      });
+    }
+  }
+  #execute(evt) {
+    try {
+      const item = this.#callback(evt);
+      for (const [ _, pusher ] of this.#pushers) {
+        pusher.push(item);
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "SignalPushSource.execute",
+        error: e,
+      });
+    }
   }
 }
 
