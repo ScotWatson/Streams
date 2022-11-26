@@ -91,27 +91,15 @@ class Puller {
   }
 };
 
-export class SourceController {
-  #source;
-  #push;
-  constructor(args) {
-    const sourceArgs = {};
-    this.#source = new Source(sourceArgs);
-    this.#push = args.push;
-  }
-  get source() {
-    return this.#source;
-  }
-  execute(item) {
-    this.#push(item);
-  }
-}
-
 export class PullSink {
   #puller;
   constructor(args) {
     try {
       this.#puller = null;
+      args.execute = Types.createStaticFunction({
+        function: this.#execute,
+        thisArg: this,
+      });
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PullSink constructor",
@@ -151,9 +139,179 @@ export class PullSink {
       });
     }
   }
+  disconnect() {
+    try {
+      this.#puller = null;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PullSink.connect",
+        error: e,
+      });
+    }
+  }
+  #execute() {
+    try {
+      if (this.#puller === null) {
+        throw "PullSource must be connected to execute.";
+      }
+      return this.#puller.pull();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PullSink.connect",
+        error: e,
+      });
+    }
+  }
 }
 
+export class PullSinkController {
+  #sink;
+  #execute;
+  constructor(args) {
+    const sinkArgs = {};
+    this.#sink = new PullSink(sinkArgs);
+    this.#execute = sinkArgs.execute;
+  }
+  get sink() {
+    return this.#sink;
+  }
+  execute(item) {
+    this.#push(item);
+  }
+}
 
+export class PushSource {
+  #pushers;
+  constructor(args) {
+    try {
+      this.#pushers = new Map();
+      args.execute = Types.createStaticFunction({
+        function: this.#execute,
+        thisArg: this,
+      });
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PushSource constructor",
+        error: e,
+      });
+    }
+  }
+  connect(args) {
+    try {
+      let newSink;
+      if (Types.isSimpleObject(args)) {
+        if (!(Object.hasOwn(args, "sink"))) {
+          throw "Argument \"sink\" must be provided.";
+        }
+        newSink = args.sink;
+      } else {
+        newSink = args;
+      }
+      if (!("getPusher" in newSink)) {
+        throw "Argument \"sink\" must provide a getPusher function. (It must be a push sink.)";
+      }
+      if (!(Types.isInvocable(newSink.getPusher))) {
+        throw "\"sink.getPusher\" must be a function.";
+      }
+      const newPusher = newSink.getPusher();
+      if (!(newPusher instanceof Pusher)) {
+        throw "\"sink.getPusher()\" must return a Pusher. Try using a sink derived from the Streams library.";
+      }
+      this.#pushers.set(newSink, newPusher);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PushSource.connect",
+        error: e,
+      });
+    }
+  }
+  disconnect(args) {
+    try {
+      let sink;
+      if (Types.isSimpleObject(args)) {
+        if (!(Object.hasOwn(args, "sink"))) {
+          throw "Argument \"sink\" must be provided.";
+        }
+        sink = args.sink;
+      } else {
+        sink = args;
+      }
+      this.#pushers.delete(sink);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PushSource.disconnect",
+        error: e,
+      });
+    }
+  }
+  #execute(item) {
+    try {
+      for (const [ _, pusher ] of this.#pushers) {
+        pusher.push(item);
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PushSource.execute",
+        error: e,
+      });
+    }
+  }
+};
+
+export class PushSourceController {
+  #source;
+  #execute;
+  constructor(args) {
+    try {
+      const sourceArgs = {};
+      this.#source = new PushSource(sourceArgs);
+      this.#execute = sourceArgs.execute;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PushSourceController constructor",
+        error: e,
+      });
+    }
+  }
+  get source() {
+    return this.#source;
+  }
+  execute(item) {
+    try {
+      this.#execute(item);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PushSourceController.execute",
+        error: e,
+      });
+    }
+  }
+}
+
+export class PushSink {
+  #pusher;
+  constructor(args) {
+  }
+  getPusher() {
+    try {
+      const callback = Types.createStaticFunction({
+        function: this.#push,
+        thisObj: this,
+      });
+      const newPusher = new Pusher({
+        callbackPush: callback,
+      });
+      this.#pusher.release();
+      this.#pusher = newPusher;
+      return this.#pusher;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "Pipe.getPusher",
+        error: e,
+      });
+    }
+  }
+}
 
 
 
@@ -440,98 +598,6 @@ export class SignalPushSource {
     }
   }
 }
-
-export class SinksController {
-  #sinks;
-  constructor(args) {
-    try {
-      this.#sinks = new Sinks({
-      });
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "SinksController constructor",
-        error: e,
-      });
-    }
-  }
-  get sinks() {
-    return this.#sinks;
-  }
-  push(item) {
-    try {
-      for (const [ _, pusher ] of this.#pushers) {
-        pusher.push(item);
-      }
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "SinksController.push",
-        error: e,
-      });
-    }
-  }
-}
-
-export class PushSource {
-  #pushers;
-  constructor(args) {
-    try {
-      this.#pushers = new Map();
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "Sinks constructor",
-        error: e,
-      });
-    }
-  }
-  register(args) {
-    try {
-      let newSink;
-      if (Types.isSimpleObject(args)) {
-        if (!(Object.hasOwn(args, "sink"))) {
-          throw "Argument \"sink\" must be provided.";
-        }
-        newSink = args.sink;
-      } else {
-        newSink = args;
-      }
-      if (!("getPusher" in newSink)) {
-        throw "Argument \"sink\" must provide a getPusher function. (It must be a push sink.)";
-      }
-      if (!(Types.isInvocable(newSink.getPusher))) {
-        throw "\"sink.getPusher\" must be a function.";
-      }
-      const newPusher = newSink.getPusher();
-      if (!(newPusher instanceof Pusher)) {
-        throw "\"sink.getPusher()\" must return a Pusher. Try using a sink derived from the Streams library.";
-      }
-      this.#pushers.set(newSink, newPusher);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "Sinks.register",
-        error: e,
-      });
-    }
-  }
-  unregister(args) {
-    try {
-      let sink;
-      if (Types.isSimpleObject(args)) {
-        if (!(Object.hasOwn(args, "sink"))) {
-          throw "Argument \"sink\" must be provided.";
-        }
-        sink = args.sink;
-      } else {
-        sink = args;
-      }
-      this.#pushers.delete(sink);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "Sinks.unregister",
-        error: e,
-      });
-    }
-  }
-};
 
 // Active, accepts a puller
 export class PullSink {
