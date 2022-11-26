@@ -1,4 +1,3 @@
-
 /*
 (c) 2022 Scot Watson  All Rights Reserved
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
@@ -92,8 +91,76 @@ class Puller {
   }
 };
 
+export class SourceController {
+  #source;
+  #push;
+  constructor(args) {
+    const sourceArgs = {};
+    this.#source = new Source(sourceArgs);
+    this.#push = args.push;
+  }
+  get source() {
+    return this.#source;
+  }
+  execute(item) {
+    this.#push(item);
+  }
+}
+
+export class PullSink {
+  #puller;
+  constructor(args) {
+    try {
+      this.#puller = null;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PullSink constructor",
+        error: e,
+      });
+    }
+  }
+  connect(args) {
+    try {
+      let newSource;
+      if (Types.isSimpleObject(args)) {
+        if (!(Object.hasOwn(args, "source"))) {
+          throw "Argument \"source\" must be provided.";
+        }
+        newSource = args.source;
+      } else {
+        newSource = args;
+      }
+      if (!("getPuller" in newSource)) {
+        throw "Argument \"source\" must provide a getPuller function. (It must be a pull source.)";
+      }
+      if (!(Types.isInvocable(newSource.getPuller))) {
+        throw "\"source.getPuller\" must be a function.";
+      }
+      const newPuller = newSource.getPuller();
+      if (!(newPuller instanceof Puller)) {
+        throw "\"source.getPuller()\" must return a Puller. Try using a source derived from the Streams library.";
+      }
+      if (this.#puller !== null) {
+        this.#puller.release();
+      }
+      this.#puller = newPuller;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PullSink.connect",
+        error: e,
+      });
+    }
+  }
+}
+
+
+
+
+
+
+
 // Passive, provides a pusher and a puller
-export class Pipe extends self.EventTarget {
+export class Pipe {
   #queue;
   #pusher;
   #puller;
@@ -154,12 +221,11 @@ export class Pipe extends self.EventTarget {
 };
 
 // Active, accepts a puller and pushers
-export class Pump extends self.EventTarget {
+export class Pump {
   #puller;
   #pushers;
   constructor() {
     try {
-      super();
       this.#puller = null;
       this.#pushers = new Map();
     } catch (e) {
@@ -375,7 +441,36 @@ export class SignalPushSource {
   }
 }
 
-// Active, accepts a pusher
+export class SinksController {
+  #sinks;
+  constructor(args) {
+    try {
+      this.#sinks = new Sinks({
+      });
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "SinksController constructor",
+        error: e,
+      });
+    }
+  }
+  get sinks() {
+    return this.#sinks;
+  }
+  push(item) {
+    try {
+      for (const [ _, pusher ] of this.#pushers) {
+        pusher.push(item);
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "SinksController.push",
+        error: e,
+      });
+    }
+  }
+}
+
 export class PushSource {
   #pushers;
   constructor(args) {
@@ -383,12 +478,12 @@ export class PushSource {
       this.#pushers = new Map();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PushSource constructor",
+        functionName: "Sinks constructor",
         error: e,
       });
     }
   }
-  registerSink(args) {
+  register(args) {
     try {
       let newSink;
       if (Types.isSimpleObject(args)) {
@@ -412,12 +507,12 @@ export class PushSource {
       this.#pushers.set(newSink, newPusher);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PushSource.registerSink",
+        functionName: "Sinks.register",
         error: e,
       });
     }
   }
-  unregisterSink(args) {
+  unregister(args) {
     try {
       let sink;
       if (Types.isSimpleObject(args)) {
@@ -431,19 +526,7 @@ export class PushSource {
       this.#pushers.delete(sink);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PushSource.unregisterSink",
-        error: e,
-      });
-    }
-  }
-  execute(item) {
-    try {
-      for (const [ _, pusher ] of this.#pushers) {
-        pusher.push(item);
-      }
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PushSource.execute",
+        functionName: "Sinks.unregister",
         error: e,
       });
     }
@@ -451,7 +534,7 @@ export class PushSource {
 };
 
 // Active, accepts a puller
-export class PullSink extends self.EventTarget {
+export class PullSink {
   #callbackPush;
   #puller;
   constructor(args) {
