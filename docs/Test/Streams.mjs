@@ -289,8 +289,26 @@ export class PushSourceController {
 }
 
 export class PushSink {
-  #pusher;
+  #controller;
   constructor(args) {
+    try {
+      this.#controller = new Tasks.SignalController();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PushSink constructor",
+        error: e,
+      });
+    }
+  }
+  push(item) {
+    try {
+      this.#controller.dispatch(item);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PushSink.push",
+        error: e,
+      });
+    }
   }
   getPusher() {
     try {
@@ -298,6 +316,7 @@ export class PushSink {
         function: this.#push,
         thisObj: this,
       });
+      controller.signal.add();
       const newPusher = new Pusher({
         callbackPush: callback,
       });
@@ -306,54 +325,34 @@ export class PushSink {
       return this.#pusher;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Pipe.getPusher",
+        functionName: "PushSink.getPusher",
         error: e,
       });
     }
   }
 }
 
-
-
-
-
-// Passive, provides a pusher and a puller
-export class Pipe {
-  #queue;
-  #pusher;
-  #puller;
-  constructor() {
+export class PullSource {
+  #callback;
+  constructor(args) {
     try {
-      super();
-      this.#queue = new Queue.Queue({
-      });
+      this.#callback = args.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Pipe constructor",
+        functionName: "PullSource constructor",
         error: e,
       });
     }
   }
-  getPusher() {
+  pull() {
     try {
-      const newPusher = new Pusher({
-        callbackPush: Types.createStaticAsyncFunc(this, this.#push),
-      });
-      this.#pusher.release();
-      this.#pusher = newPusher;
-      return this.#pusher;
+      return this.#callback();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Pipe.getPusher",
+        functionName: "PullSource.pull",
         error: e,
       });
     }
-  }
-  async #push(item) {
-    if (this.#queue.isFull()) {
-      this.dispatchEvent("buffer-full");
-    }
-    this.#queue.enqueue(item);
   }
   getPuller() {
     try {
@@ -365,7 +364,55 @@ export class Pipe {
       return this.#puller;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Pipe.getPuller",
+        functionName: "PullSource.getPuller",
+        error: e,
+      });
+    }
+  }
+}
+
+
+
+// Passive, provides a pusher and a puller
+export class Pipe {
+  #queue;
+  #inputController;
+  #outputController;
+  constructor() {
+    try {
+      this.#queue = new Queue.Queue({
+      });
+      this.#inputController = new PushSinkController();
+      this.#outputController = new PullSourceController();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "Pipe constructor",
+        error: e,
+      });
+    }
+  }
+  get input() {
+    try {
+      return this.#inputController.sink;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "Pipe.input",
+        error: e,
+      });
+    }
+  }
+  async #push(item) {
+    if (this.#queue.isFull()) {
+      this.dispatchEvent("buffer-full");
+    }
+    this.#queue.enqueue(item);
+  }
+  get output() {
+    try {
+      return this.#outputController;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "Pipe.output",
         error: e,
       });
     }
