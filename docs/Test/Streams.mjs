@@ -497,8 +497,12 @@ export class Pipe {
       });
     }
   }
-      
-      this.#bufferEmptyController = new SignalController();
+  get bufferEmpty() {
+    return this.#bufferEmptyController.signal;
+  }
+  get bufferFull() {
+    return this.#bufferFullController.signal;
+  }
 };
 
 // Active, accepts a puller and pushers
@@ -647,7 +651,7 @@ export class AsyncFunctionPushSource {
   }
 }
 
-export class ReadableStreamPushSourceController {
+export class ReadableByteStreamPushSourceController {
   #reader;
   #pushSourceController;
   #closedSignalController;
@@ -810,6 +814,7 @@ export class WritableStreamPushSink {
 // Active Sink
 export class BytePullSink {
   #callbackPull;
+  #chunkSize;
   constructor(args) {
     try {
       this.#callbackPull = null;
@@ -817,6 +822,7 @@ export class BytePullSink {
         function: this.#execute,
         this: this,
       });
+      this.chunkSize = args.chunkSize;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePullSink constructor",
@@ -884,15 +890,18 @@ export class BytePullSink {
       });
     }
   }
-  #execute() {
+  #execute(args) {
     try {
       if (this.#callbackPull === null) {
         throw "PullSource must be connected to execute.";
       }
-      return this.#callbackPull.invoke();
+      const view = args.view;
+      this.#callbackPull.invoke({
+        memoryView: view,
+      });
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PullSink.execute",
+        functionName: "BytePullSink.execute",
         error: e,
       });
     }
@@ -904,14 +913,14 @@ export class BytePullSinkController {
   #execute;
   constructor(args) {
     const sinkArgs = {};
-    this.#sink = new PullSink(sinkArgs);
+    this.#sink = new BytePullSink(sinkArgs);
     this.#execute = sinkArgs.execute;
   }
   get sink() {
     return this.#sink;
   }
-  execute(item) {
-    this.#execute(item);
+  execute(args) {
+    return this.#execute(args);
   }
 }
 
@@ -927,7 +936,7 @@ export class BytePushSource {
       this.#signalController = new Tasks.SignalController();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PushSource constructor",
+        functionName: "BytePushSource constructor",
         error: e,
       });
     }
@@ -953,7 +962,7 @@ export class BytePushSource {
       this.#signalController.signal.add(newCallback);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PushSource.connect",
+        functionName: "BytePushSource.connect",
         error: e,
       });
     }
@@ -963,34 +972,34 @@ export class BytePushSource {
       this.#signalController.signal.removeIfRevoked();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PushSource.disconnectIfRevoked",
+        functionName: "BytePushSource.disconnectIfRevoked",
         error: e,
       });
     }
   }
-  #execute(item) {
+  #execute(args) {
     try {
-      this.#signalController.dispatch(item);
+      this.#signalController.dispatch(args.view);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PushSource.execute",
+        functionName: "BytePushSource.execute",
         error: e,
       });
     }
   }
 };
 
-export class PushSourceController {
+export class BytePushSourceController {
   #source;
   #execute;
   constructor(args) {
     try {
       const sourceArgs = {};
-      this.#source = new PushSource(sourceArgs);
+      this.#source = new BytePushSource(sourceArgs);
       this.#execute = sourceArgs.execute;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PushSourceController constructor",
+        functionName: "BytePushSourceController constructor",
         error: e,
       });
     }
@@ -998,12 +1007,12 @@ export class PushSourceController {
   get source() {
     return this.#source;
   }
-  execute(item) {
+  execute(args) {
     try {
-      this.#execute(item);
+      this.#execute(args);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PushSourceController.execute",
+        functionName: "BytePushSourceController.execute",
         error: e,
       });
     }
@@ -1011,7 +1020,7 @@ export class PushSourceController {
 }
 
 // Passive Sink
-export class PushSink {
+export class BytePushSink {
   #controller;
   #callbackFunction;
   constructor(args) {
@@ -1023,7 +1032,7 @@ export class PushSink {
       });
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PushSink constructor",
+        functionName: "BytePushSink constructor",
         error: e,
       });
     }
@@ -1039,7 +1048,7 @@ export class PushSink {
       return this.#controller.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PushSink.getCallback",
+        functionName: "BytePushSink.getCallback",
         error: e,
       });
     }
@@ -1052,7 +1061,7 @@ export class PushSink {
       this.#controller = null;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PushSink.disconnect",
+        functionName: "BytePushSink.disconnect",
         error: e,
       });
     }
@@ -1077,7 +1086,7 @@ export class PushSink {
       return new self.WritableStream(underlyingSink, writeQueuingStrategy);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PushSink.createWritableStream",
+        functionName: "BytePushSink.createWritableStream",
         error: e,
       });
     }
@@ -1085,7 +1094,7 @@ export class PushSink {
 }
 
 // Passive Source
-export class PullSource {
+export class BytePullSource {
   #controller;
   #callbackFunction;
   constructor(args) {
@@ -1097,7 +1106,7 @@ export class PullSource {
       });
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PullSource constructor",
+        functionName: "BytePullSource constructor",
         error: e,
       });
     }
@@ -1113,7 +1122,7 @@ export class PullSource {
       return this.#controller.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PullSource.getCallback",
+        functionName: "BytePullSource.getCallback",
         error: e,
       });
     }
@@ -1126,7 +1135,7 @@ export class PullSource {
       this.#controller = null;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PullSource.disconnect",
+        functionName: "BytePullSource.disconnect",
         error: e,
       });
     }
@@ -1155,7 +1164,7 @@ export class PullSource {
       return new self.ReadableStream(underlyingSource, readQueuingStrategy);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PullSource.createReadableStream",
+        functionName: "BytePullSource.createReadableStream",
         error: e,
       });
     }
@@ -1171,31 +1180,31 @@ export function createPullConnection(pullSource, pullSink) {
 }
 
 // Passive, provides a pusher and a puller
-export class Pipe {
+export class BytePipe {
   #queue;
   #input;
   #output;
   constructor() {
     try {
-      this.#queue = new Queue.Queue({
+      this.#queue = new Queue.ByteQueue({
       });
       const inputCallback = new Tasks.Callback({
         function: this.#push,
         this: this,
       });
-      this.#input = new PushSink({
+      this.#input = new BytePushSink({
         callback: inputCallback,
       });
       const outputCallback = new Tasks.Callback({
         function: this.#pull,
         this: this,
       });
-      this.#output = new PullSource({
+      this.#output = new BytePullSource({
         callback: outputCallback,
       });
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Pipe constructor",
+        functionName: "BytePipe constructor",
         error: e,
       });
     }
@@ -1205,46 +1214,62 @@ export class Pipe {
       return this.#inputController;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get Pipe.input",
+        functionName: "get BytePipe.input",
         error: e,
       });
     }
   }
-  async #push(item) {
-    if (this.#queue.isFull()) {
-      this.dispatchEvent("buffer-full");
+  async #push(args) {
+    try {
+      if (this.#queue.isFull()) {
+        this.dispatchEvent("buffer-full");
+      }
+      const queueView = this.#queue.reserve(args.view.byteLength);
+      queueView.set(args.view);
+      this.#queue.enqueue();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get BytePipe.push",
+        error: e,
+      });
     }
-    this.#queue.enqueue(item);
   }
   get output() {
     try {
       return this.#outputController;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get Pipe.output",
+        functionName: "get BytePipe.output",
         error: e,
       });
     }
   }
-  #pull() {
-    if (this.#queue.isEmpty()) {
-      this.dispatchEvent("buffer-empty");
+  #pull(args) {
+    try {
+      if (this.#queue.isEmpty()) {
+        this.dispatchEvent("buffer-empty");
+      }
+      this.#queue.dequeue(args.view);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get BytePipe.pull",
+        error: e,
+      });
     }
-    return this.#queue.dequeue();
   }
 };
 
 // Active, accepts a puller and pushers
-export class Pump {
+export class BytePump {
   #inputController;
   #outputController;
   constructor() {
     try {
-      this.#inputController = new PullSinkController();
-      this.#outputController = new PushSourceController();
+      this.#inputController = new BytePullSinkController();
+      this.#outputController = new BytePushSourceController();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Pump constructor",
+        functionName: "BytePump constructor",
         error: e,
       });
     }
@@ -1254,7 +1279,7 @@ export class Pump {
       return this.#inputController.sink;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get Pump.input",
+        functionName: "get BytePump.input",
         error: e,
       });
     }
@@ -1264,277 +1289,27 @@ export class Pump {
       return this.#outputController.source;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get Pump.output",
+        functionName: "get BytePump.output",
         error: e,
       });
     }
   }
-  execute() {
+  execute(args) {
     try {
-      const item = this.#inputController.execute();
-      this.#outputController.execute(item);
+      const view = new Memory.View({
+        byteLength: args.byteLength,
+      });
+      const item = this.#inputController.execute({
+        view: view;
+      });
+      this.#outputController.execute({
+        view: view,
+      });
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Pump.execute",
+        functionName: "BytePump.execute",
         error: e,
       });
     }
   }
 }
-
-export class AsyncByteReaderPushSourceController {
-  #pushSourceController;
-  #callback;
-  #taskCallback;
-  #chunkByteLength;
-  #offset;
-  #buffer;
-  constructor(args) {
-    this.#callback = args.callback;
-    const taskFunction = Tasks.createStatic({
-      function: this.#task,
-      this: this,
-    });
-    const taskCallbackController = new Tasks.CallbackController({
-      callback: taskFunction,
-    });
-    this.#taskCallback = taskCallbackController.callback;
-    this.#pushSourceController = new PushSourceController();
-    this.#offset = 0;
-    this.#buffer = Memory.Block({
-      byteLength: this.#chunkByteLength,
-    });
-    this.#taskCallback.invoke();
-  }
-  get source() {
-    return this.#pushSourceController.source;
-  }
-  peek() {
-    const partialData = new Memory.View({
-      memoryBlock: this.#block,
-      byteOffset: 0,
-      byteLength: this.#offset,
-    });
-    const block = new Memory.Block(this.#offset);
-    const view = new Memory.View(block);
-    view.set(partialData);
-    return view;
-  }
-  async #task() {
-    const inputView = new Memory.View({
-      memoryBlock: this.#buffer,
-      byteOffset: this.#offset,
-      byteLength: this.#chunkByteLength - this.#offset,
-    });
-    const outputView = await this.#callback(inputView);
-    if (!("byteLength" in outputView)) {
-      throw "callback must return a view.";
-    }
-    this.#offset += outputView.byteLength;
-    if (this.#offset >= this.#buffer.byteLength) {
-      this.#pushSourceController.execute(this.#buffer);
-      this.#offset = 0;
-      this.#buffer = Memory.Block({
-        byteLength: this.#chunkByteLength,
-      });
-    }
-    Tasks.queueTask(this.#taskCallback);
-  }
-}
-
-export class AsyncFunctionPushSource {
-  #pushSourceController;
-  #callback;
-  #taskCallback;
-  constructor(args) {
-    try {
-      this.#callback = args.callback;
-      this.#pushSourceController = new PushSourceController();
-      const taskFunction = Tasks.createStatic({
-        function: this.#task,
-        this: this,
-      });
-      const taskCallbackController = new Tasks.CallbackController({
-        function: taskFunction,
-      });
-      this.#taskCallback = taskCallbackController.callback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "AsyncFunctionPushSource constructor",
-        error: e,
-      });
-    }
-  }
-  get source() {
-    return this.#pushSourceController.source;
-  }
-  async #task() {
-    const inputView = new Memory.View({
-      memoryBlock: this.#buffer,
-      byteOffset: this.#offset,
-      byteLength: this.#chunkByteLength - this.#offset,
-    });
-    const item = await this.#callback();
-    this.#pushSourceController.execute(item);
-    Tasks.queueTask(this.#taskCallback);
-  }
-}
-
-export class ReadableStreamPushSourceController {
-  #reader;
-  #pushSourceController;
-  #closedSignalController;
-  #cancelledSignalController;
-  constructor(args) {
-    try {
-      let readableStream;
-      if (Types.isSimpleObject(args)) {
-        if (Object.hasOwn(args, "readableStream")) {
-          throw "Argument \"readableStream\" must be provided.";
-        }
-        readableStream = args.readableStream;
-      } else {
-        readableStream = args;
-      }
-      if (!(readableStream instanceof self.ReadableStream)) {
-        throw "Argument \"readableStream\" must be of type self.ReadableStream.";
-      }
-      if (readableStream.locked) {
-        throw "Argument \"readableStream\" must be unlocked.";
-      }
-      const reader = readableStream.getReader();
-      this.#reader = reader;
-      const callbackFunction = Tasks.createStatic({
-        function: this.#process,
-        this: this,
-      });
-      const callbackController = new Tasks.CallbackController({
-        function: callbackFunction;
-      });
-      this.#pushSourceController = new AsyncByteReaderPushSourceController({
-        callback: callbackController.callback;
-      });
-      this.#closedSignalController = new SignalController();
-      this.#cancelledSignalController = new SignalController();
-      reader.closed.then(function () {
-        this.#closedSignalController.dispatch();
-        this.#cancelledSignalController.dispatch();
-      });
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "ReadableStreamPushSourceController constructor",
-        error: e,
-      });
-    }
-  }
-  get source() {
-    try {
-      return this.#pushSourceController.source;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get ReadableStreamPushSourceController.source",
-        error: e,
-      });
-    }
-  }
-  async #process(view) {
-    try {
-      const uint8Array = view.toUint8Array();
-      const { value, done } = await this.#reader.read(uint8Array);
-      if (!(value instanceof Uint8Array)) {
-        return null;
-      }
-      const block = new Memory.Block(value.buffer);
-      return new Memory.View({
-        memoryBlock: block,
-        byteOffset: value.byteOffset,
-        byteLength: value.byteLength,
-      });
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "ReadableStreamPushSourceController.process",
-        error: e,
-      });
-    }
-  }
-  get closed() {
-    try {
-      return this.#closedSignalController.signal;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get ReadableStreamPushSourceController.closed",
-        error: e,
-      });
-    }
-  }
-  get cancelled() {
-    try {
-      return this.#cancelledSignalController.signal;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get ReadableStreamPushSourceController.cancelled",
-        error: e,
-      });
-    }
-  }
-};
-
-export class WritableStreamPushSink {
-  #pushSink;
-  #writer;
-  constructor(args) {
-    try {
-      let writableStream;
-      if (Types.isSimpleObject(args)) {
-        if (Object.hasOwn(args, "writableStream")) {
-          throw "Argument \"writableStream\" must be provided.";
-        }
-        writableStream = args.writableStream;
-      } else {
-        writableStream = args;
-      }
-      if (!(writableStream instanceof self.WritableStream)) {
-        throw "Argument \"writableStream\" must be of type self.WritableStream.";
-      }
-      if (writableStream.locked) {
-        throw "Argument \"writableStream\" must be unlocked.";
-      }
-      this.#writer = writableStream.getWriter();
-      const pushSinkCallbackFunction = Tasks.createStatic({
-        function: this.#writer.write,
-        this: this.#writer,
-      });
-      const pushSinkCallbackController = new Tasks.CallbackController({
-        function: pushSinkCallbackFunction,
-      });
-      this.#pushSink = new PushSink({
-        callback: pushSinkCallbackController.callback,
-      });
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "WritableStreamPushSink constructor",
-        error: e,
-      });
-    }
-  }
-  getCallback() {
-    try {
-      return this.#pushSink.getCallback();
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "WritableStreamPushSink.getCallback",
-        error: e,
-      });
-    }
-  }
-  disconnect() {
-    try {
-      return this.#pushSink.disconnect();
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "WritableStreamPushSink.disconnect",
-        error: e,
-      });
-    }
-  }
-};
