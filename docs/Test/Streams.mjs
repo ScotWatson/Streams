@@ -140,14 +140,14 @@ export class PullSinkController {
 
 // Active Source
 export class PushSource {
-  #signalController;
+  #callback;
   constructor(args) {
     try {
       args.execute = Tasks.createStatic({
         function: this.#execute,
         thisArg: this,
       });
-      this.#signalController = new Tasks.SignalController();
+      this.#callback = null;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PushSource constructor",
@@ -172,8 +172,7 @@ export class PushSource {
       if (!(Types.isInvocable(newSink.getCallback))) {
         throw "\"sink.getCallback\" must be a function.";
       }
-      const newCallback = newSink.getCallback();
-      this.#signalController.signal.add(newCallback);
+      this.#callback = newSink.getCallback();
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PushSource.connect",
@@ -183,7 +182,9 @@ export class PushSource {
   }
   disconnectIfRevoked() {
     try {
-      this.#signalController.signal.removeIfRevoked();
+      if (this.#callback.isRevoked()) {
+        this.#callback = null;
+      }
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PushSource.disconnectIfRevoked",
@@ -193,7 +194,7 @@ export class PushSource {
   }
   #execute(item) {
     try {
-      this.#signalController.dispatch(item);
+      this.#callback.invoke(item);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PushSource.execute",
@@ -240,6 +241,85 @@ export class PushSourceController {
   }
 }
 
+// Push-type
+export class Splitter {
+  #inputCallbackController;
+  #outputCallbackSet;
+  #clone;
+  #staticExecute;
+  constructor(args) {
+    try {
+      this.#inputCallbackController = null;
+      this.#outputCallbackSet = new Set();
+      this.#clone = args.clone;
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "Splitter constructor",
+        error: e,
+      });
+    }
+  }
+  getCallback() {
+    try {
+      if (this.#inputCallbackController !== null) {
+        this.#inputCallbackController.replace(null);
+      }
+      this.#inputCallbackController = new CallbackController({
+        function: this.#staticExecute,
+      });
+      return this.#inputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "Splitter.getCallback",
+        error: e,
+      });
+    }
+  }
+  connect(args) {
+    try {
+      let newSink;
+      if (Types.isSimpleObject(args)) {
+        if (!(Object.hasOwn(args, "sink"))) {
+          throw "Argument \"sink\" must be provided.";
+        }
+        newSink = args.sink;
+      } else {
+        newSink = args;
+      }
+      if (!("getCallback" in newSink)) {
+        throw "Argument \"sink\" must provide a getCallback function. (It must be a push sink.)";
+      }
+      if (!(Types.isInvocable(newSink.getCallback))) {
+        throw "\"sink.getCallback\" must be a function.";
+      }
+      this.#callbackSet.add(newSink.getCallback());
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "Splitter.connect",
+        error: e,
+      });
+    }
+  }
+  disconnectAllRevoked(args) {
+    const newCallbackSet = new Set();
+    for (const callback of outputCallbackSet) {
+      if (!(callback.isRevoked())) {
+        newCallbackSet.add(callback);
+      }
+    }
+    outputCallbackSet = newCallbackSet;
+  }
+  #execute(item) {
+    for (const callback of outputCallbackSet) {
+      callback.invoke(item);
+    }
+  }
+}
+
 // Passive Sink
 export class PushSink {
   #controller;
@@ -247,10 +327,7 @@ export class PushSink {
   constructor(args) {
     try {
       this.#controller = null;
-      this.#callbackFunction = Tasks.createStatic({
-        function: args.callback.invoke,
-        this: args.callback,
-      });
+      this.#callbackFunction = args.callback.invoke;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PushSink constructor",
@@ -321,10 +398,7 @@ export class PullSource {
   constructor(args) {
     try {
       this.#controller = null;
-      this.#callbackFunction = Tasks.createStatic({
-        function: args.callback.invoke,
-        this: args.callback,
-      });
+      this.#callbackFunction = args.callback.invoke;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PullSource constructor",
@@ -458,7 +532,7 @@ export class Pipe {
       });
     }
   }
-  async #push(item) {
+  #push(item) {
     try {
       if (this.#queue.isFull()) {
         this.dispatchEvent("buffer-full");
@@ -1015,6 +1089,85 @@ export class BytePushSourceController {
         functionName: "BytePushSourceController.execute",
         error: e,
       });
+    }
+  }
+}
+
+// Push-type
+export class ByteSplitter {
+  #inputCallbackController;
+  #outputCallbackSet;
+  #clone;
+  #staticExecute;
+  constructor(args) {
+    try {
+      this.#inputCallbackController = null;
+      this.#outputCallbackSet = new Set();
+      this.#clone = args.clone;
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "Splitter constructor",
+        error: e,
+      });
+    }
+  }
+  getCallback() {
+    try {
+      if (this.#inputCallbackController !== null) {
+        this.#inputCallbackController.replace(null);
+      }
+      this.#inputCallbackController = new CallbackController({
+        function: this.#staticExecute,
+      });
+      return this.#inputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "Splitter.getCallback",
+        error: e,
+      });
+    }
+  }
+  connect(args) {
+    try {
+      let newSink;
+      if (Types.isSimpleObject(args)) {
+        if (!(Object.hasOwn(args, "sink"))) {
+          throw "Argument \"sink\" must be provided.";
+        }
+        newSink = args.sink;
+      } else {
+        newSink = args;
+      }
+      if (!("getCallback" in newSink)) {
+        throw "Argument \"sink\" must provide a getCallback function. (It must be a push sink.)";
+      }
+      if (!(Types.isInvocable(newSink.getCallback))) {
+        throw "\"sink.getCallback\" must be a function.";
+      }
+      this.#callbackSet.add(newSink.getCallback());
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "Splitter.connect",
+        error: e,
+      });
+    }
+  }
+  disconnectAllRevoked(args) {
+    const newCallbackSet = new Set();
+    for (const callback of outputCallbackSet) {
+      if (!(callback.isRevoked())) {
+        newCallbackSet.add(callback);
+      }
+    }
+    outputCallbackSet = newCallbackSet;
+  }
+  #execute(item) {
+    for (const callback of outputCallbackSet) {
+      callback.invoke(item);
     }
   }
 }
