@@ -56,7 +56,7 @@ export class PullSink {
       if (!(Types.isInvocable(newCallback.isRevoked))) {
         throw "Callback.isRevoked must be invocable.";
       }
-      this.#signalController.signal.add(newCallback);
+      this.#callbackPull = newCallback;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PullSink.connect",
@@ -934,7 +934,7 @@ export class BytePullSink {
       if (!(Types.isInvocable(newCallback.isRevoked))) {
         throw "Callback.isRevoked must be invocable.";
       }
-      this.#signalController.signal.add(newCallback);
+      this.#callback = newCallback;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePullSink.connect",
@@ -964,15 +964,22 @@ export class BytePullSink {
       });
     }
   }
-  #execute(args) {
+  #execute() {
     try {
       if (this.#callbackPull === null) {
         throw "PullSource must be connected to execute.";
       }
-      const view = args.view;
+      // const view = createView();
+      // numBytes = invoke(view);
+      // if (view.byteLength < numBytes) {
+      //   view = createView(numBytes);
+      //   invoke(view);
+      // }
       this.#callbackPull.invoke({
         memoryView: view,
       });
+      
+      const view = args.view;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePullSink.execute",
