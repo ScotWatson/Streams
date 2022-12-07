@@ -969,12 +969,21 @@ export class BytePullSink {
       if (this.#callbackPull === null) {
         throw "PullSource must be connected to execute.";
       }
-      // const view = createView();
-      // numBytes = invoke(view);
-      // if (view.byteLength < numBytes) {
-      //   view = createView(numBytes);
-      //   invoke(view);
-      // }
+      source callback:
+       - Passed a single argument: a Memory.View, the buffer to be filled
+       - Expected to return an integer: the number of bytes
+       - Expected algorithm:
+         - If the buffer is large enough, fill the buffer with data, to the extent possible, and return the number of bytes filled.
+         - If the buffer is not large enough, return the minimum buffer length required in bytes.
+      sink callback:
+       - Passed a single argument: a source callback
+       - No return value expected
+       - Expected algorithm:
+         - Create a Memory.View.
+         - Invoke the source callback, passing the Memory.View.
+         - If the length of the view in bytes is less than the returned value:
+           - Create a Memory.View with a minimum byte length of the returned value.
+           - Invoke the source callback, passing the Memory.View.
       this.#callbackPull.invoke({
         memoryView: view,
       });
