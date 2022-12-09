@@ -11,10 +11,12 @@ import * as Tasks from "https://scotwatson.github.io/Tasks/Test/Tasks.mjs";
 
 // Active Sink
 export class PullSink {
-  #callbackPull;
+  #callbackSource;
+  #functionPush;
   constructor(args) {
     try {
-      this.#callbackPull = null;
+      this.#callbackSource = null;
+      this.#functionPush = args.functionPush;
       args.execute = Tasks.createStatic({
         function: this.#execute,
         this: this,
@@ -56,7 +58,7 @@ export class PullSink {
       if (!(Types.isInvocable(newCallback.isRevoked))) {
         throw "Callback.isRevoked must be invocable.";
       }
-      this.#callbackPull = newCallback;
+      this.#callbackSource = newCallback;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PullSink.connect",
@@ -66,7 +68,7 @@ export class PullSink {
   }
   disconnect() {
     try {
-      this.#callbackPull = null;
+      this.#callbackSource = null;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PullSink.disconnect",
@@ -76,8 +78,8 @@ export class PullSink {
   }
   disconnectIfRevoked() {
     try {
-      if (this.#callbackPull.isRevoked()) {
-        this.#callbackPull = null;
+      if (this.#callbackSource.isRevoked()) {
+        this.#callbackSource = null;
       }
     } catch (e) {
       ErrorLog.rethrow({
@@ -88,10 +90,10 @@ export class PullSink {
   }
   #execute() {
     try {
-      if (this.#callbackPull === null) {
+      if (this.#callbackSource === null) {
         throw "PullSource must be connected to execute.";
       }
-      return this.#callbackPull.invoke();
+      return this.#callbackSource.invoke();
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PullSink.execute",
@@ -884,19 +886,13 @@ export class WritableStreamPushSink {
   }
 };
 
-
 // Active Sink
 export class BytePullSink {
-  #callbackPull;
-  #chunkSize;
+  #callback;
+  #functionPull;
   constructor(args) {
     try {
-      this.#callbackPull = null;
-      args.execute = Tasks.createStatic({
-        function: this.#execute,
-        this: this,
-      });
-      this.chunkSize = args.chunkSize;
+      this.#functionPull = args.functionPull;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePullSink constructor",
@@ -922,6 +918,12 @@ export class BytePullSink {
         throw "\"source.getCallback\" must be invocable.";
       }
       const newCallback = newSource.getCallback();
+      if (!("allocate" in newCallback)) {
+        throw "Callback must have member \"allocate\".";
+      }
+      if (!(Types.isInvocable(newCallback.allocate))) {
+        throw "Callback.allocate must be invocable.";
+      }
       if (!("invoke" in newCallback)) {
         throw "Callback must have member \"invoke\".";
       }
@@ -944,7 +946,7 @@ export class BytePullSink {
   }
   disconnect() {
     try {
-      this.#callbackPull = null;
+      this.#callback = null;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePullSink.disconnect",
@@ -954,8 +956,8 @@ export class BytePullSink {
   }
   disconnectIfRevoked() {
     try {
-      if (this.#callbackPull.isRevoked()) {
-        this.#callbackPull = null;
+      if (this.#callback.isRevoked()) {
+        this.#callback = null;
       }
     } catch (e) {
       ErrorLog.rethrow({
@@ -964,31 +966,14 @@ export class BytePullSink {
       });
     }
   }
-  #execute() {
+  #execute(chunkSize) {
     try {
       if (this.#callbackPull === null) {
         throw "PullSource must be connected to execute.";
       }
-      source callback:
-       - Passed a single argument: a Memory.View, the buffer to be filled
-       - Expected to return an integer: the number of bytes
-       - Expected algorithm:
-         - If the buffer is large enough, fill the buffer with data, to the extent possible, and return the number of bytes filled.
-         - If the buffer is not large enough, return the minimum buffer length required in bytes.
-      sink callback:
-       - Passed a single argument: a source callback
-       - No return value expected
-       - Expected algorithm:
-         - Create a Memory.View.
-         - Invoke the source callback, passing the Memory.View.
-         - If the length of the view in bytes is less than the returned value:
-           - Create a Memory.View with a minimum byte length of the returned value.
-           - Invoke the source callback, passing the Memory.View.
-      this.#callbackPull.invoke({
-        memoryView: view,
-      });
-      
-      const view = args.view;
+      const buffer = this.#callback.allocate(chunkSize);
+      this.#functionPull(buffer);
+      this.#callback.invoke(chunkSize);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePullSink.execute",
@@ -1002,7 +987,7 @@ export class BytePullSinkController {
   #sink;
   #execute;
   constructor(args) {
-    const sinkArgs = {};
+    const sinkArgs = args;
     this.#sink = new BytePullSink(sinkArgs);
     this.#execute = sinkArgs.execute;
   }
@@ -1190,15 +1175,14 @@ export class ByteSplitter {
 
 // Passive Sink
 export class BytePushSink {
-  #controller;
-  #callbackFunction;
+  #callbackController;
+  #functionAllocate;
+  #functionCommit;
   constructor(args) {
     try {
-      this.#controller = null;
-      this.#callbackFunction = Tasks.createStatic({
-        function: args.callback.invoke,
-        this: args.callback,
-      });
+      this.#callbackController = null;
+      this.#functionAllocate = args.functionAllocate;
+      this.#functionCommit = args.functionCommit;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePushSink constructor",
@@ -1208,13 +1192,14 @@ export class BytePushSink {
   }
   getCallback() {
     try {
-      if (this.#controller !== null) {
-        this.#controller.replace(null);
+      if (this.#callbackController !== null) {
+        this.#callbackController.replace(null);
       }
-      this.#controller = new Tasks.CallbackController({
-        callback: this.#callbackFunction,
+      this.#callbackController = new Tasks.ByteCallbackController({
+        functionAllocate: this.#functionAllocate,
+        functionInvoke: this.#functionCommit,
       });
-      return this.#controller.callback;
+      return this.#callbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePushSink.getCallback",
@@ -1224,10 +1209,10 @@ export class BytePushSink {
   }
   disconnect() {
     try {
-      if (this.#controller !== null) {
-        this.#controller.replace(null);
+      if (this.#callbackController !== null) {
+        this.#callbackController.replace(null);
       }
-      this.#controller = null;
+      this.#callbackController = null;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePushSink.disconnect",
@@ -1243,6 +1228,8 @@ export class BytePushSink {
         },
         write: function (chunk, controller) {
           callback.invoke(chunk);
+          const uint8Array = chunk.toUint8Array();
+          controller.enqueue(uint8Array);
         },
         close: function (controller) {
         },
@@ -1264,15 +1251,12 @@ export class BytePushSink {
 
 // Passive Source
 export class BytePullSource {
-  #controller;
-  #callbackFunction;
+  #callbackController;
+  #functionPull;
   constructor(args) {
     try {
-      this.#controller = null;
-      this.#callbackFunction = Tasks.createStatic({
-        function: args.callback.invoke,
-        this: args.callback,
-      });
+      this.#callbackController = null;
+      this.#functionPull = args.functionPull;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePullSource constructor",
@@ -1282,13 +1266,13 @@ export class BytePullSource {
   }
   getCallback() {
     try {
-      if (this.#controller !== null) {
-        this.#controller.replace(null);
+      if (this.#callbackController !== null) {
+        this.#callbackController.replace(null);
       }
-      this.#controller = new Tasks.CallbackController({
-        callback: this.#callbackFunction,
+      this.#callbackController = new Tasks.CallbackController({
+        function: this.#functionPull,
       });
-      return this.#controller.callback;
+      return this.#callbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePullSource.getCallback",
@@ -1298,10 +1282,10 @@ export class BytePullSource {
   }
   disconnect() {
     try {
-      if (this.#controller !== null) {
-        this.#controller.replace(null);
+      if (this.#callbackController !== null) {
+        this.#callbackController.replace(null);
       }
-      this.#controller = null;
+      this.#callbackController = null;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePullSource.disconnect",
@@ -1340,36 +1324,33 @@ export class BytePullSource {
   }
 }
 
-export function createPushConnection(pushSource, pushSink) {
-  pushSource.connect(pushSink);
-}
-
-export function createPullConnection(pullSource, pullSink) {
-  pullSink.connect(pullSource);
-}
-
 // Passive, provides a pusher and a puller
 export class BytePipe {
   #queue;
-  #input;
-  #output;
+  #input; // BytePushSink
+  #output; // BytePullSource
   constructor() {
     try {
       this.#queue = new Queue.ByteQueue({
       });
-      const inputCallback = new Tasks.Callback({
-        function: this.#push,
-        this: this,
+      const functionAllocate = new Tasks.createStatic({
+        function: this.#queue.allocate,
+        this: this.#queue,
+      });
+      const functionCommit = new Tasks.createStatic({
+        function: this.#queue.enqueue,
+        this: this.#queue,
       });
       this.#input = new BytePushSink({
-        callback: inputCallback,
+        functionAllocate: functionAllocate,
+        functionCommit: functionCommit,
       });
-      const outputCallback = new Tasks.Callback({
-        function: this.#pull,
-        this: this,
+      const functionPull = new Tasks.createStatic({
+        function: this.#queue.dequeue,
+        this: this.#queue,
       });
       this.#output = new BytePullSource({
-        callback: outputCallback,
+        functionPull: functionPull,
       });
     } catch (e) {
       ErrorLog.rethrow({
@@ -1380,7 +1361,7 @@ export class BytePipe {
   }
   get input() {
     try {
-      return this.#inputController;
+      return this.#input;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "get BytePipe.input",
@@ -1388,40 +1369,12 @@ export class BytePipe {
       });
     }
   }
-  async #push(args) {
-    try {
-      if (this.#queue.isFull()) {
-        this.dispatchEvent("buffer-full");
-      }
-      const queueView = this.#queue.reserve(args.view.byteLength);
-      queueView.set(args.view);
-      this.#queue.enqueue();
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get BytePipe.push",
-        error: e,
-      });
-    }
-  }
   get output() {
     try {
-      return this.#outputController;
+      return this.#output;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "get BytePipe.output",
-        error: e,
-      });
-    }
-  }
-  #pull(args) {
-    try {
-      if (this.#queue.isEmpty()) {
-        this.dispatchEvent("buffer-empty");
-      }
-      this.#queue.dequeue(args.view);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get BytePipe.pull",
         error: e,
       });
     }
