@@ -651,19 +651,23 @@ export class WritableStreamPushSink {
 export class ByteSplitter {
   #inputCallbackController;
   #outputCallbackSet;
-  #clone;
+  #staticAllocate;
   #staticExecute;
   constructor(args) {
     try {
+      this.#staticAllocate = Tasks.createStatic({
+        function: this.#allocate,
+        this: this,
+      });
       this.#staticExecute = Tasks.createStatic({
         function: this.#execute,
         this: this,
       });
       this.#inputCallbackController = new Tasks.UniqueByteCallbackController({
+        allocate: this.#staticAllocate,
         invoke: this.#staticExecute,
       });
       this.#outputCallbackSet = new Set();
-      this.#clone = args.clone;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "ByteSplitter constructor",
@@ -693,6 +697,12 @@ export class ByteSplitter {
           return args;
         }
       })();
+      if (!("allocate" in newCallback)) {
+        throw "Callback must have member \"allocate\".";
+      }
+      if (!(Types.isInvocable(newCallback.allocate))) {
+        throw "Callback.allocate must be invocable.";
+      }
       if (!("invoke" in newCallback)) {
         throw "Callback must have member \"invoke\".";
       }
@@ -724,15 +734,31 @@ export class ByteSplitter {
       this.#outputCallbackSet = newCallbackSet;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "ByteSplitter.connect",
+        functionName: "ByteSplitter.disconnectAllRevoked",
         error: e,
       });
     }
   }
-  #execute(item) {
+  #allocate(byteLength) {
+    try {
+      this.#block = new Memory.Block({
+        byteLength: byteLength,
+      });
+      this.#view = new Memory.View(this.#block);
+      return this.#view;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "ByteSplitter.#allocate",
+        error: e,
+      });
+    }
+  }
+  #execute(byteLength) {
     try {
       for (const callback of this.#outputCallbackSet) {
-        callback.invoke(this.#clone(item));
+        const view = callback.allocate(byteLength);
+        view.set(this.#view);
+        callback.invoke(byteLength);
       }
     } catch (e) {
       ErrorLog.rethrow({
@@ -743,19 +769,22 @@ export class ByteSplitter {
   }
 }
 
-// From "PushSink" callback
+// From "PushSink" byte callback
 export function createByteWritableStream(callback) {
   try {
     const underlyingSink = {
       start: function (controller) {
       },
       write: function (chunk, controller) {
-        callback.invoke(chunk);
+        const view = callback.allocate(chunk.byteLength);
+        view.set(chunk);
+        callback.invoke(chunk.byteLength);
       },
       close: function (controller) {
       },
       abort: function (reason) {
       },
+      mode: "bytes",
     };
     const writeQueuingStrategy = {
       highWaterMark: 1,
@@ -769,8 +798,8 @@ export function createByteWritableStream(callback) {
   }
 }
 
-// From "PullSource" callback
-export function createReadableStream(callback) {
+// From "PullSource" callback (not byte callback)
+export function createByteReadableStream(callback) {
   try {
     const underlyingSource = {
       start: function (controller) {
@@ -783,6 +812,7 @@ export function createReadableStream(callback) {
       cancel: function (reason) {
         return;
       },
+      mode: "bytes",
     };
     const readQueuingStrategy = {
       highWaterMark: 1,
@@ -810,16 +840,25 @@ export class BytePipe {
     try {
       this.#queue = new Queue.Queue({
       });
+      const staticAllocate = new Tasks.createStatic({
+        function: this.#allocate,
+        this: this,
+      });
       const staticInput = new Tasks.createStatic({
         function: this.#push,
         this: this,
       });
-      this.#inputCallbackController = new Tasks.UniqueByteCallbackController(staticInput);
+      this.#inputCallbackController = new Tasks.UniqueByteCallbackController({
+        allocate: staticAllocate,
+        invoke: staticInput,
+      });
       const staticOutput = new Tasks.createStatic({
         function: this.#pull,
         this: this,
       });
-      this.#outputCallbackController = new Tasks.UniqueByteCallbackController(staticOutput);
+      this.#outputCallbackController = new Tasks.UniqueCallbackController({
+        invoke: staticOutput,
+      });
       this.#bufferFullController = new SignalController();
       this.#bufferEmptyController = new SignalController();
     } catch (e) {
@@ -839,12 +878,22 @@ export class BytePipe {
       });
     }
   }
-  #push(item) {
+  #allocate(byteLength) {
+    try {
+      this.#queue.reserve(byteLength);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePipe.#allocate",
+        error: e,
+      });
+    }
+  }
+  #push(byteLength) {
     try {
       if (this.#queue.unusedCapacity === 0) {
         this.#bufferFullController.dispatch();
       }
-      this.#queue.enqueue(item);
+      this.#queue.enqueue(byteLength);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePipe.#push",
@@ -862,12 +911,12 @@ export class BytePipe {
       });
     }
   }
-  #pull() {
+  #pull(byteLength) {
     try {
       if (this.#queue.usedCapacity === 0) {
         this.#bufferEmptyController.dispatch();
       }
-      return this.#queue.dequeue();
+      return this.#queue.dequeue(byteLength);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePipe.#pull",
@@ -903,7 +952,7 @@ export class BytePump {
   #outputCallback;
   constructor() {
     try {
-      this.#inputCallback = new ByteCallback(null);
+      this.#inputCallback = new Callback(null);
       this.#outputCallback = new ByteCallback(null);
     } catch (e) {
       ErrorLog.rethrow({
@@ -932,10 +981,12 @@ export class BytePump {
       });
     }
   }
-  execute() {
+  execute(byteLength) {
     try {
-      const item = this.#inputCallback.invoke();
-      this.#outputCallback.invoke(item);
+      const outputView = this.#outputCallback.allocate(byteLength);
+      const inputView = this.#inputCallback.invoke(byteLength);
+      outputView.set(inputView);
+      this.#outputCallback.invoke(byteLength);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePump.execute",
@@ -944,4 +995,3 @@ export class BytePump {
     }
   }
 }
-
