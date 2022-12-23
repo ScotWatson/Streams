@@ -20,7 +20,7 @@ export class Splitter {
         function: this.#execute,
         this: this,
       });
-      this.#inputCallbackController = new UniqueCallbackController({
+      this.#inputCallbackController = new Tasks.UniqueCallbackController({
         invoke: this.#staticExecute,
       });
       this.#outputCallbackSet = new Set();
@@ -91,8 +91,15 @@ export class Splitter {
     }
   }
   #execute(item) {
-    for (const callback of this.#outputCallbackSet) {
-      callback.invoke(this.#clone(item));
+    try {
+      for (const callback of this.#outputCallbackSet) {
+        callback.invoke(this.#clone(item));
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "Splitter.connect",
+        error: e,
+      });
     }
   }
 }
@@ -124,9 +131,8 @@ export function createWritableStream(callback) {
 }
 
 // From "PullSource" callback
-export function createReadableStream() {
+export function createReadableStream(callback) {
   try {
-    const callback = this.getCallback();
     const underlyingSource = {
       start: function (controller) {
         return;
@@ -641,4 +647,301 @@ export class WritableStreamPushSink {
     }
   }
 };
+
+export class ByteSplitter {
+  #inputCallbackController;
+  #outputCallbackSet;
+  #clone;
+  #staticExecute;
+  constructor(args) {
+    try {
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#inputCallbackController = new Tasks.UniqueByteCallbackController({
+        invoke: this.#staticExecute,
+      });
+      this.#outputCallbackSet = new Set();
+      this.#clone = args.clone;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "ByteSplitter constructor",
+        error: e,
+      });
+    }
+  }
+  get inputCallback() {
+    try {
+      return this.#inputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get ByteSplitter.inputCallback",
+        error: e,
+      });
+    }
+  }
+  connect(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallbackSet.add(newCallback);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "ByteSplitter.connect",
+        error: e,
+      });
+    }
+  }
+  disconnectAllRevoked(args) {
+    try {
+      const newCallbackSet = new Set();
+      for (const callback of this.#outputCallbackSet) {
+        if (!(callback.isRevoked())) {
+          newCallbackSet.add(callback);
+        }
+      }
+      this.#outputCallbackSet = newCallbackSet;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "ByteSplitter.connect",
+        error: e,
+      });
+    }
+  }
+  #execute(item) {
+    try {
+      for (const callback of this.#outputCallbackSet) {
+        callback.invoke(this.#clone(item));
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "ByteSplitter.#execute",
+        error: e,
+      });
+    }
+  }
+}
+
+// From "PushSink" callback
+export function createByteWritableStream(callback) {
+  try {
+    const underlyingSink = {
+      start: function (controller) {
+      },
+      write: function (chunk, controller) {
+        callback.invoke(chunk);
+      },
+      close: function (controller) {
+      },
+      abort: function (reason) {
+      },
+    };
+    const writeQueuingStrategy = {
+      highWaterMark: 1,
+    }
+    return new self.WritableStream(underlyingSink, writeQueuingStrategy);
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "createByteWritableStream",
+      error: e,
+    });
+  }
+}
+
+// From "PullSource" callback
+export function createReadableStream(callback) {
+  try {
+    const underlyingSource = {
+      start: function (controller) {
+        return;
+      },
+      pull: function (controller) {
+        const item = callback.invoke();
+        controller.enqueue(item);
+      },
+      cancel: function (reason) {
+        return;
+      },
+    };
+    const readQueuingStrategy = {
+      highWaterMark: 1,
+      size: function (chunk) {
+        return 1;
+      }
+    };
+    return new self.ReadableStream(underlyingSource, readQueuingStrategy);
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "createByteReadableStream",
+      error: e,
+    });
+  }
+}
+
+// passive
+export class BytePipe {
+  #queue;
+  #inputCallbackController;
+  #outputCallbackController;
+  #bufferFullController;
+  #bufferEmptyController;
+  constructor() {
+    try {
+      this.#queue = new Queue.Queue({
+      });
+      const staticInput = new Tasks.createStatic({
+        function: this.#push,
+        this: this,
+      });
+      this.#inputCallbackController = new Tasks.UniqueByteCallbackController(staticInput);
+      const staticOutput = new Tasks.createStatic({
+        function: this.#pull,
+        this: this,
+      });
+      this.#outputCallbackController = new Tasks.UniqueByteCallbackController(staticOutput);
+      this.#bufferFullController = new SignalController();
+      this.#bufferEmptyController = new SignalController();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePipe constructor",
+        error: e,
+      });
+    }
+  }
+  get inputCallback() {
+    try {
+      return this.#inputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get BytePipe.inputCallback",
+        error: e,
+      });
+    }
+  }
+  #push(item) {
+    try {
+      if (this.#queue.unusedCapacity === 0) {
+        this.#bufferFullController.dispatch();
+      }
+      this.#queue.enqueue(item);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePipe.#push",
+        error: e,
+      });
+    }
+  }
+  get outputCallback() {
+    try {
+      return this.#outputCallbackController.output;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get BytePipe.outputCallback",
+        error: e,
+      });
+    }
+  }
+  #pull() {
+    try {
+      if (this.#queue.usedCapacity === 0) {
+        this.#bufferEmptyController.dispatch();
+      }
+      return this.#queue.dequeue();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePipe.#pull",
+        error: e,
+      });
+    }
+  }
+  get bufferEmpty() {
+    try {
+      return this.#bufferEmptyController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get BytePipe.bufferEmpty",
+        error: e,
+      });
+    }
+  }
+  get bufferFull() {
+    try {
+      return this.#bufferFullController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get BytePipe.bufferFull",
+        error: e,
+      });
+    }
+  }
+};
+
+// active
+export class BytePump {
+  #inputCallback;
+  #outputCallback;
+  constructor() {
+    try {
+      this.#inputCallback = new ByteCallback(null);
+      this.#outputCallback = new ByteCallback(null);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePump constructor",
+        error: e,
+      });
+    }
+  }
+  connectInput(args) {
+    try {
+      this.#inputCallback = args;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePump.connectInput",
+        error: e,
+      });
+    }
+  }
+  connectOutput(args) {
+    try {
+      this.#outputCallback = args;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePump.connectOutput",
+        error: e,
+      });
+    }
+  }
+  execute() {
+    try {
+      const item = this.#inputCallback.invoke();
+      this.#outputCallback.invoke(item);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePump.execute",
+        error: e,
+      });
+    }
+  }
+}
 
