@@ -9,248 +9,6 @@ import * as Queue from "https://scotwatson.github.io/Containers/Test/Queue.mjs";
 import * as Memory from "https://scotwatson.github.io/Memory/Test/Memory.mjs";
 import * as Tasks from "https://scotwatson.github.io/Tasks/Test/Tasks.mjs";
 
-// Active Sink
-export class PullSink {
-  #callbackSource;
-  #functionPush;
-  constructor(args) {
-    try {
-      this.#callbackSource = null;
-      this.#functionPush = args.functionPush;
-      args.execute = Tasks.createStatic({
-        function: this.#execute,
-        this: this,
-      });
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PullSink constructor",
-        error: e,
-      });
-    }
-  }
-  connect(args) {
-    try {
-      let newSource;
-      if (Types.isSimpleObject(args)) {
-        if (!(Object.hasOwn(args, "source"))) {
-          throw "Argument \"source\" must be provided.";
-        }
-        newSource = args.source;
-      } else {
-        newSource = args;
-      }
-      if (!("getCallback" in newSource)) {
-        throw "Argument \"source\" must provide a getCallback function. (It must be a pull source.)";
-      }
-      if (Tasks.isInvocable(newSource.getCallback)) {
-        throw "\"source.getCallback\" must be invocable.";
-      }
-      const newCallback = newSource.getCallback();
-      if (!("invoke" in newCallback)) {
-        throw "Callback must have member \"invoke\".";
-      }
-      if (!(Types.isInvocable(newCallback.invoke))) {
-        throw "Callback.invoke must be invocable.";
-      }
-      if (!("isRevoked" in newCallback)) {
-        throw "Callback must have member \"isRevoked\".";
-      }
-      if (!(Types.isInvocable(newCallback.isRevoked))) {
-        throw "Callback.isRevoked must be invocable.";
-      }
-      this.#callbackSource = newCallback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PullSink.connect",
-        error: e,
-      });
-    }
-  }
-  disconnect() {
-    try {
-      this.#callbackSource = null;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PullSink.disconnect",
-        error: e,
-      });
-    }
-  }
-  disconnectIfRevoked() {
-    try {
-      if (this.#callbackSource.isRevoked()) {
-        this.#callbackSource = null;
-      }
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PullSink.disconnectIfRevoked",
-        error: e,
-      });
-    }
-  }
-  #execute() {
-    try {
-      if (this.#callbackSource === null) {
-        throw "PullSource must be connected to execute.";
-      }
-      const item = this.#callbackSource.invoke();
-      this.#functionPush(item);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PullSink.execute",
-        error: e,
-      });
-    }
-  }
-}
-
-export class PullSinkController {
-  #sink;
-  #execute;
-  constructor(args) {
-    try {
-      const sinkArgs = {
-        functionPush: args.functionPush,
-      };
-      this.#sink = new PullSink(sinkArgs);
-      this.#execute = sinkArgs.execute;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PullSinkController constructor",
-        error: e,
-      });
-    }
-  }
-  get sink() {
-    try {
-      return this.#sink;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get PullSinkController.sink",
-        error: e,
-      });
-    }
-  }
-  execute(item) {
-    try {
-      this.#execute();
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PullSinkController.execute",
-        error: e,
-      });
-    }
-  }
-}
-
-// Active Source
-export class PushSource {
-  #callbackSink;
-  #functionPull;
-  constructor(args) {
-    try {
-      args.execute = Tasks.createStatic({
-        function: this.#execute,
-        thisArg: this,
-      });
-      this.#callbackSink = null;
-      this.#functionPull = args.functionPull;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PushSource constructor",
-        error: e,
-      });
-    }
-  }
-  connect(args) {
-    try {
-      let newSink;
-      if (Types.isSimpleObject(args)) {
-        if (!(Object.hasOwn(args, "sink"))) {
-          throw "Argument \"sink\" must be provided.";
-        }
-        newSink = args.sink;
-      } else {
-        newSink = args;
-      }
-      if (!("getCallback" in newSink)) {
-        throw "Argument \"sink\" must provide a getCallback function. (It must be a push sink.)";
-      }
-      if (!(Types.isInvocable(newSink.getCallback))) {
-        throw "\"sink.getCallback\" must be a function.";
-      }
-      this.#callbackSink = newSink.getCallback();
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PushSource.connect",
-        error: e,
-      });
-    }
-  }
-  disconnectIfRevoked() {
-    try {
-      if (this.#callbackSink.isRevoked()) {
-        this.#callbackSink = null;
-      }
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PushSource.disconnectIfRevoked",
-        error: e,
-      });
-    }
-  }
-  #execute() {
-    try {
-      const item = this.#functionPull();
-      this.#callbackSink.invoke(item);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PushSource.execute",
-        error: e,
-      });
-    }
-  }
-};
-
-export class PushSourceController {
-  #source;
-  #execute;
-  constructor(args) {
-    try {
-      const sourceArgs = {
-        functionPull: args.functionPull,
-      };
-      this.#source = new PushSource(sourceArgs);
-      this.#execute = sourceArgs.execute;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PushSourceController constructor",
-        error: e,
-      });
-    }
-  }
-  get source() {
-    try {
-      return this.#source;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get PushSourceController.source",
-        error: e,
-      });
-    }
-  }
-  execute(item) {
-    try {
-      this.#execute(item);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PushSourceController.execute",
-        error: e,
-      });
-    }
-  }
-}
-
 export class Splitter {
   #inputCallbackController;
   #outputCallbackSet;
@@ -258,7 +16,9 @@ export class Splitter {
   #staticExecute;
   constructor(args) {
     try {
-      this.#inputCallbackController = null;
+      this.#inputCallbackController = new UniqueCallbackController({
+        function: this.#staticExecute,
+      });
       this.#outputCallbackSet = new Set();
       this.#clone = args.clone;
       this.#staticExecute = Tasks.createStatic({
@@ -272,40 +32,47 @@ export class Splitter {
       });
     }
   }
-  getCallback() {
+  get inputCallback() {
     try {
-      if (this.#inputCallbackController !== null) {
-        this.#inputCallbackController.replace(null);
-      }
-      this.#inputCallbackController = new CallbackController({
-        function: this.#staticExecute,
-      });
       return this.#inputCallbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Splitter.getCallback",
+        functionName: "get Splitter.inputCallback",
         error: e,
       });
     }
   }
   connect(args) {
     try {
-      let newSink;
-      if (Types.isSimpleObject(args)) {
-        if (!(Object.hasOwn(args, "sink"))) {
-          throw "Argument \"sink\" must be provided.";
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
         }
-        newSink = args.sink;
-      } else {
-        newSink = args;
+      })();
+      if (!("allocate" in newCallback)) {
+        throw "Callback must have member \"allocate\".";
       }
-      if (!("getCallback" in newSink)) {
-        throw "Argument \"sink\" must provide a getCallback function. (It must be a push sink.)";
+      if (!(Types.isInvocable(newCallback.allocate))) {
+        throw "Callback.allocate must be invocable.";
       }
-      if (!(Types.isInvocable(newSink.getCallback))) {
-        throw "\"sink.getCallback\" must be a function.";
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
       }
-      this.#outputCallbackSet.add(newSink.getCallback());
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallbackSet.add(newCallback);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "Splitter.connect",
@@ -329,199 +96,84 @@ export class Splitter {
   }
 }
 
-// Passive Sink
-export class PushSink {
-  #callbackController;
-  #functionPush;
-  constructor(args) {
-    try {
-      this.#callbackController = null;
-      this.#functionPush = args.functionPush;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PushSink constructor",
-        error: e,
-      });
-    }
-  }
-  getCallback() {
-    try {
-      if (this.#callbackController !== null) {
-        this.#callbackController.replace(null);
-      }
-      this.#callbackController = new Tasks.CallbackController({
-        function: this.#functionPush,
-      });
-      return this.#callbackController.callback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PushSink.getCallback",
-        error: e,
-      });
-    }
-  }
-  disconnect() {
-    try {
-      if (this.#callbackController !== null) {
-        this.#callbackController.replace(null);
-      }
-      this.#callbackController = null;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PushSink.disconnect",
-        error: e,
-      });
-    }
-  }
-  createWritableStream() {
-    try {
-      const callback = this.getCallback();
-      const underlyingSink = {
-        start: function (controller) {
-        },
-        write: function (chunk, controller) {
-          callback.invoke(chunk);
-        },
-        close: function (controller) {
-        },
-        abort: function (reason) {
-        },
-      };
-      const writeQueuingStrategy = {
-        highWaterMark: 1,
-      }
-      return new self.WritableStream(underlyingSink, writeQueuingStrategy);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PushSink.createWritableStream",
-        error: e,
-      });
-    }
-  }
-}
-
-// Passive Source
-export class PullSource {
-  #callbackController;
-  #functionPull;
-  constructor(args) {
-    try {
-      this.#controller = null;
-      this.#callbackFunction = args.callback.invoke;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PullSource constructor",
-        error: e,
-      });
-    }
-  }
-  getCallback() {
-    try {
-      if (this.#callbackController !== null) {
-        this.#callbackController.replace(null);
-      }
-      this.#callbackController = new Tasks.CallbackController({
-        function: this.#functionPull,
-      });
-      return this.#callbackController.callback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PullSource.getCallback",
-        error: e,
-      });
-    }
-  }
-  disconnect() {
-    try {
-      if (this.#callbackController !== null) {
-        this.#callbackController.replace(null);
-      }
-      this.#callbackController = null;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PullSource.disconnect",
-        error: e,
-      });
-    }
-  }
-  createReadableStream() {
-    try {
-      const callback = this.getCallback();
-      const underlyingSource = {
-        start: function (controller) {
-          return;
-        },
-        pull: function (controller) {
-          const item = callback.invoke();
-          controller.enqueue(item);
-        },
-        cancel: function (reason) {
-          return;
-        },
-      };
-      const readQueuingStrategy = {
-        highWaterMark: 1,
-        size: function (chunk) {
-          return 1;
-        }
-      };
-      return new self.ReadableStream(underlyingSource, readQueuingStrategy);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PullSource.createReadableStream",
-        error: e,
-      });
-    }
-  }
-}
-
-export function createPushConnection(pushSource, pushSink) {
+// From "PushSink" callback
+export function createWritableStream(callback) {
   try {
-    pushSource.connect(pushSink);
+    const underlyingSink = {
+      start: function (controller) {
+      },
+      write: function (chunk, controller) {
+        callback.invoke(chunk);
+      },
+      close: function (controller) {
+      },
+      abort: function (reason) {
+      },
+    };
+    const writeQueuingStrategy = {
+      highWaterMark: 1,
+    }
+    return new self.WritableStream(underlyingSink, writeQueuingStrategy);
   } catch (e) {
     ErrorLog.rethrow({
-      functionName: "createPushConnection",
+      functionName: "createWritableStream",
       error: e,
     });
   }
 }
 
-export function createPullConnection(pullSource, pullSink) {
+// From "PullSource" callback
+export function createReadableStream() {
   try {
-    pullSink.connect(pullSource);
+    const callback = this.getCallback();
+    const underlyingSource = {
+      start: function (controller) {
+        return;
+      },
+      pull: function (controller) {
+        const item = callback.invoke();
+        controller.enqueue(item);
+      },
+      cancel: function (reason) {
+        return;
+      },
+    };
+    const readQueuingStrategy = {
+      highWaterMark: 1,
+      size: function (chunk) {
+        return 1;
+      }
+    };
+    return new self.ReadableStream(underlyingSource, readQueuingStrategy);
   } catch (e) {
     ErrorLog.rethrow({
-      functionName: "createPullConnection",
+      functionName: "createReadableStream",
       error: e,
     });
   }
 }
 
-// Passive, provides a pusher and a puller
+// passive
 export class Pipe {
   #queue;
-  #input;
-  #output;
+  #inputCallbackController;
+  #outputCallbackController;
   #bufferFullController;
   #bufferEmptyController;
   constructor() {
     try {
       this.#queue = new Queue.Queue({
       });
-      const inputCallback = new Tasks.Callback({
+      const staticInput = new Tasks.createStatic({
         function: this.#push,
         this: this,
       });
-      this.#input = new PushSink({
-        callback: inputCallback,
-      });
-      const outputCallback = new Tasks.Callback({
+      this.#inputCallbackController = new Tasks.CallbackController(staticInput);
+      const staticOutput = new Tasks.createStatic({
         function: this.#pull,
         this: this,
       });
-      this.#output = new PullSource({
-        callback: outputCallback,
-      });
+      this.#outputCallbackController = new Tasks.CallbackController(staticOutput);
       this.#bufferFullController = new SignalController();
       this.#bufferEmptyController = new SignalController();
     } catch (e) {
@@ -531,12 +183,12 @@ export class Pipe {
       });
     }
   }
-  get input() {
+  get inputCallback() {
     try {
-      return this.#inputController;
+      return this.#inputCallbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get Pipe.input",
+        functionName: "get Pipe.inputCallback",
         error: e,
       });
     }
@@ -554,12 +206,12 @@ export class Pipe {
       });
     }
   }
-  get output() {
+  get outputCallback() {
     try {
-      return this.#outputController;
+      return this.#outputCallbackController.output;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get Pipe.output",
+        functionName: "get Pipe.outputCallback",
         error: e,
       });
     }
@@ -588,14 +240,14 @@ export class Pipe {
   }
 };
 
-// Active, accepts a puller and pushers
+// active
 export class Pump {
-  #inputController;
-  #outputController;
+  #inputCallback;
+  #outputCallback;
   constructor() {
     try {
-      this.#inputController = new PullSinkController();
-      this.#outputController = new PushSourceController();
+      this.#inputCallback = new Callback(null);
+      this.#outputCallback = new Callback(null);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "Pump constructor",
@@ -603,30 +255,30 @@ export class Pump {
       });
     }
   }
-  get input() {
+  connectInput(args) {
     try {
-      return this.#inputController.sink;
+      this.#inputCallback = args;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get Pump.input",
+        functionName: "Pump.connectInput",
         error: e,
       });
     }
   }
-  get output() {
+  connectOutput(args) {
     try {
-      return this.#outputController.source;
+      this.#outputCallback = args;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get Pump.output",
+        functionName: "Pump.connectOutput",
         error: e,
       });
     }
   }
   execute() {
     try {
-      const item = this.#inputController.execute();
-      this.#outputController.execute(item);
+      const item = this.#inputCallback.invoke();
+      this.#outputCallback.invoke(item);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "Pump.execute",
@@ -893,631 +545,4 @@ export class WritableStreamPushSink {
   }
 };
 
-// Active Sink
-export class BytePullSink {
-  #callbackSource;
-  #functionAllocate;
-  #functionPush;
-  constructor(args) {
-    try {
-      this.#callbackSource = null;
-      this.#functionAllocate = args.functionAllocate;
-      this.#functionPush = args.functionPull;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePullSink constructor",
-        error: e,
-      });
-    }
-  }
-  connect(args) {
-    try {
-      let newSource;
-      if (Types.isSimpleObject(args)) {
-        if (!(Object.hasOwn(args, "source"))) {
-          throw "Argument \"source\" must be provided.";
-        }
-        newSource = args.source;
-      } else {
-        newSource = args;
-      }
-      if (!("getCallback" in newSource)) {
-        throw "Argument \"source\" must provide a getCallback function. (It must be a pull source.)";
-      }
-      if (Tasks.isInvocable(newSource.getCallback)) {
-        throw "\"source.getCallback\" must be invocable.";
-      }
-      const newCallback = newSource.getCallback();
-      if (!("invoke" in newCallback)) {
-        throw "Callback must have member \"invoke\".";
-      }
-      if (!(Types.isInvocable(newCallback.invoke))) {
-        throw "Callback.invoke must be invocable.";
-      }
-      if (!("isRevoked" in newCallback)) {
-        throw "Callback must have member \"isRevoked\".";
-      }
-      if (!(Types.isInvocable(newCallback.isRevoked))) {
-        throw "Callback.isRevoked must be invocable.";
-      }
-      this.#callbackSource = newCallback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePullSink.connect",
-        error: e,
-      });
-    }
-  }
-  disconnect() {
-    try {
-      this.#callbackSource = null;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePullSink.disconnect",
-        error: e,
-      });
-    }
-  }
-  disconnectIfRevoked() {
-    try {
-      if (this.#callbackSource.isRevoked()) {
-        this.#callbackSource = null;
-      }
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePullSink.disconnectIfRevoked",
-        error: e,
-      });
-    }
-  }
-  #execute() {
-    try {
-      if (this.#callbackSource === null) {
-        throw "PullSource must be connected to execute.";
-      }
-      const buffer = this.#functionAllocate(chunkSize);
-      this.#callbackSource.invoke(chunkSize);
-      this.#functionPush();
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePullSink.execute",
-        error: e,
-      });
-    }
-  }
-}
 
-export class BytePullSinkController {
-  #sink;
-  #execute;
-  constructor(args) {
-    try {
-      const sinkArgs = args;
-      this.#sink = new BytePullSink(sinkArgs);
-      this.#execute = sinkArgs.execute;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePullSinkController constructor",
-        error: e,
-      });
-    }
-  }
-  get sink() {
-    try {
-      return this.#sink;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get BytePullSinkController.sink",
-        error: e,
-      });
-    }
-  }
-  execute() {
-    try {
-      return this.#execute();
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePullSinkControler.execute",
-        error: e,
-      });
-    }
-  }
-}
-
-// Active Source
-export class BytePushSource {
-  #callbackSink;
-  #functionPull;
-  constructor(args) {
-    try {
-      args.execute = Tasks.createStatic({
-        function: this.#execute,
-        this: this,
-      });
-      this.#callbackSink = null;
-      this.#functionPull = args.functionPull;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePushSource constructor",
-        error: e,
-      });
-    }
-  }
-  connect(args) {
-    try {
-      let newSink;
-      if (Types.isSimpleObject(args)) {
-        if (!(Object.hasOwn(args, "sink"))) {
-          throw "Argument \"sink\" must be provided.";
-        }
-        newSink = args.sink;
-      } else {
-        newSink = args;
-      }
-      if (!("getCallback" in newSink)) {
-        throw "Argument \"sink\" must provide a getCallback function. (It must be a push sink.)";
-      }
-      if (!(Types.isInvocable(newSink.getCallback))) {
-        throw "\"sink.getCallback\" must be a function.";
-      }
-      const newCallback = newSink.getCallback();
-      if (!("allocate" in newCallback)) {
-        throw "Callback must have member \"allocate\".";
-      }
-      if (!(Types.isInvocable(newCallback.allocate))) {
-        throw "Callback.allocate must be invocable.";
-      }
-      if (!("invoke" in newCallback)) {
-        throw "Callback must have member \"invoke\".";
-      }
-      if (!(Types.isInvocable(newCallback.invoke))) {
-        throw "Callback.invoke must be invocable.";
-      }
-      if (!("isRevoked" in newCallback)) {
-        throw "Callback must have member \"isRevoked\".";
-      }
-      if (!(Types.isInvocable(newCallback.isRevoked))) {
-        throw "Callback.isRevoked must be invocable.";
-      }
-      this.#callbackSink = newCallback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePushSource.connect",
-        error: e,
-      });
-    }
-  }
-  disconnectIfRevoked() {
-    try {
-      if (this.#callbackSink.isRevoked()) {
-        this.#callbackSink = null;
-      }
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePushSource.disconnectIfRevoked",
-        error: e,
-      });
-    }
-  }
-  #execute() {
-    try {
-      const buffer = this.#callbackSink.allocate(chunkSize);
-      this.#functionPull(buffer);
-      this.#callbackSink.invoke();
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePushSource.execute",
-        error: e,
-      });
-    }
-  }
-};
-
-export class BytePushSourceController {
-  #source;
-  #execute;
-  constructor(args) {
-    try {
-      const sourceArgs = {};
-      this.#source = new BytePushSource(sourceArgs);
-      this.#execute = sourceArgs.execute;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePushSourceController constructor",
-        error: e,
-      });
-    }
-  }
-  get source() {
-    try {
-      return this.#source;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get BytePushSourceController.source",
-        error: e,
-      });
-    }
-  }
-  execute(args) {
-    try {
-      this.#execute(args);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePushSourceController.execute",
-        error: e,
-      });
-    }
-  }
-}
-
-// Push-type
-export class ByteSplitter {
-  #inputCallbackController;
-  #outputCallbackSet;
-  #clone;
-  #staticExecute;
-  constructor(args) {
-    try {
-      this.#inputCallbackController = null;
-      this.#outputCallbackSet = new Set();
-      this.#clone = args.clone;
-      this.#staticExecute = Tasks.createStatic({
-        function: this.#execute,
-        this: this,
-      });
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "ByteSplitter constructor",
-        error: e,
-      });
-    }
-  }
-  getCallback() {
-    try {
-      if (this.#inputCallbackController !== null) {
-        this.#inputCallbackController.replace(null);
-      }
-      this.#inputCallbackController = new CallbackController({
-        function: this.#staticExecute,
-      });
-      return this.#inputCallbackController.callback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "Splitter.getCallback",
-        error: e,
-      });
-    }
-  }
-  connect(args) {
-    try {
-      let newSink;
-      if (Types.isSimpleObject(args)) {
-        if (!(Object.hasOwn(args, "sink"))) {
-          throw "Argument \"sink\" must be provided.";
-        }
-        newSink = args.sink;
-      } else {
-        newSink = args;
-      }
-      if (!("getCallback" in newSink)) {
-        throw "Argument \"sink\" must provide a getCallback function. (It must be a push sink.)";
-      }
-      if (!(Types.isInvocable(newSink.getCallback))) {
-        throw "\"sink.getCallback\" must be a function.";
-      }
-      this.#outputCallbackSet.add(newSink.getCallback());
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "ByteSplitter.connect",
-        error: e,
-      });
-    }
-  }
-  disconnectAllRevoked(args) {
-    try {
-      const newCallbackSet = new Set();
-      for (const callback of this.#outputCallbackSet) {
-        if (!(callback.isRevoked())) {
-          newCallbackSet.add(callback);
-        }
-      }
-      this.#outputCallbackSet = newCallbackSet;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "ByteSplitter.disconnectAllRevoked",
-        error: e,
-      });
-    }
-  }
-  #allocate() {
-    try {
-      const block = new Memory.Block(chunkSize);
-      return new Memory.View({
-        memoryBlock: block,
-        byteLength: chunkSize,
-      });
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "ByteSplitter.#allocate",
-        error: e,
-      });
-    }
-  }
-  #execute(item) {
-    try {
-      for (const callback of this.#outputCallbackSet) {
-        const buffer = callback.allocate(chunkSize);
-        this.#functionPull(buffer);
-        callback.invoke(chunkSize);
-      }
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "ByteSplitter.#execute",
-        error: e,
-      });
-    }
-  }
-}
-
-// Passive Sink
-export class BytePushSink {
-  #callbackController;
-  #functionAllocate;
-  #functionCommit;
-  constructor(args) {
-    try {
-      this.#callbackController = null;
-      this.#functionAllocate = args.functionAllocate;
-      this.#functionCommit = args.functionCommit;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePushSink constructor",
-        error: e,
-      });
-    }
-  }
-  getCallback() {
-    try {
-      if (this.#callbackController !== null) {
-        this.#callbackController.replace(null);
-      }
-      this.#callbackController = new Tasks.ByteCallbackController({
-        functionAllocate: this.#functionAllocate,
-        functionInvoke: this.#functionCommit,
-      });
-      return this.#callbackController.callback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePushSink.getCallback",
-        error: e,
-      });
-    }
-  }
-  disconnect() {
-    try {
-      if (this.#callbackController !== null) {
-        this.#callbackController.replace(null);
-      }
-      this.#callbackController = null;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePushSink.disconnect",
-        error: e,
-      });
-    }
-  }
-  createWritableStream() {
-    try {
-      const callback = this.getCallback();
-      const underlyingSink = {
-        start: function (controller) {
-        },
-        write: function (chunk, controller) {
-          callback.invoke(chunk);
-          const uint8Array = chunk.toUint8Array();
-          controller.enqueue(uint8Array);
-        },
-        close: function (controller) {
-        },
-        abort: function (reason) {
-        },
-      };
-      const writeQueuingStrategy = {
-        highWaterMark: 1,
-      }
-      return new self.WritableStream(underlyingSink, writeQueuingStrategy);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePushSink.createWritableStream",
-        error: e,
-      });
-    }
-  }
-}
-
-// Passive Source
-export class BytePullSource {
-  #callbackController;
-  #functionPull;
-  constructor(args) {
-    try {
-      this.#callbackController = null;
-      this.#functionPull = args.functionPull;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePullSource constructor",
-        error: e,
-      });
-    }
-  }
-  getCallback() {
-    try {
-      if (this.#callbackController !== null) {
-        this.#callbackController.replace(null);
-      }
-      this.#callbackController = new Tasks.CallbackController({
-        function: this.#functionPull,
-      });
-      return this.#callbackController.callback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePullSource.getCallback",
-        error: e,
-      });
-    }
-  }
-  disconnect() {
-    try {
-      if (this.#callbackController !== null) {
-        this.#callbackController.replace(null);
-      }
-      this.#callbackController = null;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePullSource.disconnect",
-        error: e,
-      });
-    }
-  }
-  createReadableStream() {
-    try {
-      const callback = this.getCallback();
-      const underlyingSource = {
-        start: function (controller) {
-          return;
-        },
-        pull: function (controller) {
-          const item = callback.invoke();
-          controller.enqueue(item);
-        },
-        cancel: function (reason) {
-          return;
-        },
-      };
-      const readQueuingStrategy = {
-        highWaterMark: 1,
-        size: function (chunk) {
-          return 1;
-        }
-      };
-      return new self.ReadableStream(underlyingSource, readQueuingStrategy);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePullSource.createReadableStream",
-        error: e,
-      });
-    }
-  }
-}
-
-// Passive, provides a pusher and a puller
-export class BytePipe {
-  #queue;
-  #input; // BytePushSink
-  #output; // BytePullSource
-  constructor() {
-    try {
-      this.#queue = new Queue.ByteQueue({
-      });
-      const functionAllocate = new Tasks.createStatic({
-        function: this.#queue.allocate,
-        this: this.#queue,
-      });
-      const functionCommit = new Tasks.createStatic({
-        function: this.#queue.enqueue,
-        this: this.#queue,
-      });
-      this.#input = new BytePushSink({
-        functionAllocate: functionAllocate,
-        functionCommit: functionCommit,
-      });
-      const functionPull = new Tasks.createStatic({
-        function: this.#queue.dequeue,
-        this: this.#queue,
-      });
-      this.#output = new BytePullSource({
-        functionPull: functionPull,
-      });
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePipe constructor",
-        error: e,
-      });
-    }
-  }
-  get input() {
-    try {
-      return this.#input;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get BytePipe.input",
-        error: e,
-      });
-    }
-  }
-  get output() {
-    try {
-      return this.#output;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get BytePipe.output",
-        error: e,
-      });
-    }
-  }
-};
-
-// Active, accepts a puller and pushers
-export class BytePump {
-  #inputController;
-  #outputController;
-  constructor() {
-    try {
-      this.#inputController = new BytePullSinkController();
-      this.#outputController = new BytePushSourceController();
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePump constructor",
-        error: e,
-      });
-    }
-  }
-  get input() {
-    try {
-      return this.#inputController.sink;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get BytePump.input",
-        error: e,
-      });
-    }
-  }
-  get output() {
-    try {
-      return this.#outputController.source;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get BytePump.output",
-        error: e,
-      });
-    }
-  }
-  execute(args) {
-    try {
-      const view = new Memory.View({
-        byteLength: args.byteLength,
-      });
-      const item = this.#inputController.execute({
-        view: view;
-      });
-      this.#outputController.execute({
-        view: view,
-      });
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BytePump.execute",
-        error: e,
-      });
-    }
-  }
-}
