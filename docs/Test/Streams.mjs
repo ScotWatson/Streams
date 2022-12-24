@@ -995,3 +995,371 @@ export class BytePump {
     }
   }
 }
+
+export class PassiveTransform {
+  #inputCallbackController;
+  #outputCallback;
+  #transform;
+  constructor(args) {
+    try {
+      const staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#inputCallbackController = new Tasks.UniqueCallbackController({
+        invoke: staticExecute,
+      });
+      this.#outputCallback = new Tasks.Callback(null);
+      this.#transform = args.transform;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveTransform constructor",
+        error: e,
+      });
+    }
+  }
+  get inputCallback() {
+    try {
+      return this.#inputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PassiveTransform.inputCallback",
+        error: e,
+      });
+    }
+  }
+  connect(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveTransform.connect",
+        error: e,
+      });
+    }
+  }
+  #execute(item) {
+    try {
+      this.#transform({
+        input: item,
+        output: this.#outputCallback,
+      });
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveTransform.#execute",
+        error: e,
+      });
+    }
+  }
+}
+
+export class PassiveByteTransform {
+  #inputCallbackController;
+  #outputCallback;
+  #transform;
+  #block;
+  constructor(args) {
+    try {
+      const staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#inputCallbackController = new Tasks.UniqueByteCallbackController({
+        invoke: staticExecute,
+      });
+      this.#outputCallback = new Tasks.ByteCallback(null);
+      this.#transform = args.transform;
+      this.#block = null;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveByteTransform constructor",
+        error: e,
+      });
+    }
+  }
+  get inputCallback() {
+    try {
+      return this.#inputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PassiveByteTransform.inputCallback",
+        error: e,
+      });
+    }
+  }
+  connect(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("allocate" in newCallback)) {
+        throw "Callback must have member \"allocate\".";
+      }
+      if (!(Types.isInvocable(newCallback.allocate))) {
+        throw "Callback.allocate must be invocable.";
+      }
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveByteTransform.connect",
+        error: e,
+      });
+    }
+  }
+  #allocate(byteLength) {
+    try {
+      this.#block = new Memory.Block({
+        byteLength: byteLength,
+      });
+      return this.#block;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveByteTransform.#allocate",
+        error: e,
+      });
+    }
+  }
+  #execute(byteLength) {
+    try {
+      const view = new Memory.View({
+        memoryBlock: this.#block;
+        byteLength: byteLength,
+      });
+      this.#transform({
+        input: view,
+        output: this.#outputCallback,
+      });
+      this.#block = null;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveByteTransform.#execute",
+        error: e,
+      });
+    }
+  }
+}
+
+export class PassiveTransformToByte {
+  #inputCallbackController;
+  #outputCallback;
+  #transform;
+  constructor(args) {
+    try {
+      const staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#inputCallbackController = new Tasks.UniqueCallbackController({
+        invoke: staticExecute,
+      });
+      this.#outputCallback = new Tasks.Callback(null);
+      this.#transform = args.transform;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveTransformToByte constructor",
+        error: e,
+      });
+    }
+  }
+  get inputCallback() {
+    try {
+      return this.#inputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PassiveTransformToByte.inputCallback",
+        error: e,
+      });
+    }
+  }
+  connect(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("allocate" in newCallback)) {
+        throw "Callback must have member \"allocate\".";
+      }
+      if (!(Types.isInvocable(newCallback.allocate))) {
+        throw "Callback.allocate must be invocable.";
+      }
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveTransformToByte.connect",
+        error: e,
+      });
+    }
+  }
+  #execute(item) {
+    try {
+      this.#transform({
+        input: item,
+        output: this.#outputCallback,
+      });
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveTransformToByte.#execute",
+        error: e,
+      });
+    }
+  }
+}
+
+export class PassiveTransformFromByte {
+  #inputCallbackController;
+  #outputCallback;
+  #transform;
+  #block;
+  constructor(args) {
+    try {
+      const staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#inputCallbackController = new Tasks.UniqueByteCallbackController({
+        invoke: staticExecute,
+      });
+      this.#outputCallback = new Tasks.ByteCallback(null);
+      this.#transform = args.transform;
+      this.#block = null;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveTransformFromByte constructor",
+        error: e,
+      });
+    }
+  }
+  get inputCallback() {
+    try {
+      return this.#inputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PassiveTransformFromByte.inputCallback",
+        error: e,
+      });
+    }
+  }
+  connect(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveTransformFromByte.connect",
+        error: e,
+      });
+    }
+  }
+  #allocate(byteLength) {
+    try {
+      this.#block = new Memory.Block({
+        byteLength: byteLength,
+      });
+      return this.#block;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveTransformFromByte.#allocate",
+        error: e,
+      });
+    }
+  }
+  #execute(byteLength) {
+    try {
+      const view = new Memory.View({
+        memoryBlock: this.#block;
+        byteLength: byteLength,
+      });
+      this.#transform({
+        input: view,
+        output: this.#outputCallback,
+      });
+      this.#block = null;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveTransformFromByte.#execute",
+        error: e,
+      });
+    }
+  }
+}
