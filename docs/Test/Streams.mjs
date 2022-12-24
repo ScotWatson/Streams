@@ -1363,3 +1363,325 @@ export class PassiveTransformFromByte {
     }
   }
 }
+
+export class LazyTransform {
+  #inputCallback;
+  #outputCallbackController;
+  #transform;
+  constructor(args) {
+    try {
+      const staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#inputCallback = new Tasks.Callback();
+      this.#outputCallbackController = new Tasks.UniqueCallbackController({
+        invoke: staticExecute,
+      });
+      this.#transform = args.transform;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "LazyTransform constructor",
+        error: e,
+      });
+    }
+  }
+  get outputCallback() {
+    try {
+      return this.#outputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get LazyTransform.outputCallback",
+        error: e,
+      });
+    }
+  }
+  connectInput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "LazyTransform.connectInput",
+        error: e,
+      });
+    }
+  }
+  #execute() {
+    try {
+      // input: pass nothing, returns object
+      // transform: returns object as output
+      return this.#transform({
+        input: this.#inputCallback,
+      });
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "LazyTransform.#execute",
+        error: e,
+      });
+    }
+  }
+}
+
+export class LazyByteTransform {
+  #inputCallback;
+  #outputCallbackController;
+  #transform;
+  constructor(args) {
+    try {
+      const staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#inputCallback = new Tasks.Callback();
+      this.#outputCallbackController = new Tasks.UniqueCallbackController({
+        invoke: staticExecute,
+      });
+      this.#transform = args.transform;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "LazyByteTransform constructor",
+        error: e,
+      });
+    }
+  }
+  get outputCallback() {
+    try {
+      return this.#outputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get LazyByteTransform.outputCallback",
+        error: e,
+      });
+    }
+  }
+  connectInput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "LazyByteTransform.connectInput",
+        error: e,
+      });
+    }
+  }
+  #execute(outputView) {
+    try {
+      // input: create and pass Memory.View
+      // transform: writes data to outputView
+      this.#transform({
+        input: this.#inputCallback,
+        output: outputView,
+      });
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "LazyByteTransform.#execute",
+        error: e,
+      });
+    }
+  }
+}
+
+export class LazyTransformToByte {
+  #inputCallback;
+  #outputCallbackController;
+  #transform;
+  constructor(args) {
+    try {
+      const staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#inputCallback = new Tasks.Callback();
+      this.#outputCallbackController = new Tasks.UniqueCallbackController({
+        invoke: staticExecute,
+      });
+      this.#transform = args.transform;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "LazyTransformToByte constructor",
+        error: e,
+      });
+    }
+  }
+  get outputCallback() {
+    try {
+      return this.#outputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get LazyTransformToByte.outputCallback",
+        error: e,
+      });
+    }
+  }
+  connectInput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "LazyTransformToByte.connectInput",
+        error: e,
+      });
+    }
+  }
+  #execute() {
+    try {
+      // input: pass nothing, returns object
+      // transform: returns object as output
+      return this.#transform({
+        input: this.#inputCallback,
+      });
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "LazyTransformToByte.#execute",
+        error: e,
+      });
+    }
+  }
+}
+
+export class LazyTransformFromByte {
+  #inputCallback;
+  #outputCallbackController;
+  #transform;
+  constructor(args) {
+    try {
+      const staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#inputCallback = new Tasks.Callback();
+      this.#outputCallbackController = new Tasks.UniqueCallbackController({
+        invoke: staticExecute,
+      });
+      this.#transform = args.transform;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "LazyTransformFromByte constructor",
+        error: e,
+      });
+    }
+  }
+  get outputCallback() {
+    try {
+      return this.#outputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get LazyTransformFromByte.outputCallback",
+        error: e,
+      });
+    }
+  }
+  connectInput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "LazyTransformFromByte.connectInput",
+        error: e,
+      });
+    }
+  }
+  #execute(outputView) {
+    try {
+      // input: create and pass Memory.View
+      // transform: writes data to outputView
+      this.#transform({
+        input: this.#inputCallback,
+        output: outputView,
+      });
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "LazyTransformFromByte.#execute",
+        error: e,
+      });
+    }
+  }
+}
