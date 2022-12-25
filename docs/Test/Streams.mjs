@@ -392,11 +392,13 @@ export class AsyncByteReaderPushSource {
   }
   async #task() {
     try {
-      const inputView = new Memory.View({
+      const inputViewArgs = {
         memoryBlock: this.#buffer,
         byteOffset: this.#offset,
         byteLength: this.#chunkByteLength - this.#offset,
-      });
+      };
+      console.log(inputViewArgs);
+      const inputView = new Memory.View(inputViewArgs);
       const outputView = await this.#callback(inputView);
       if (!("byteLength" in outputView)) {
         throw "callback must return a view.";
