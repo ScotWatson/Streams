@@ -326,7 +326,7 @@ export class AsyncByteReaderPushSource {
       this.#taskCallback = taskCallbackController.callback;
       this.#pushCallback = null;
       this.#offset = 0;
-      this.#buffer = Memory.Block({
+      this.#buffer = new Memory.Block({
         byteLength: this.#chunkByteLength,
       });
       this.#taskCallback.invoke();
