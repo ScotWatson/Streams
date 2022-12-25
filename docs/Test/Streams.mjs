@@ -502,7 +502,7 @@ export class ReadableByteStreamPushSource {
   constructor(args) {
     try {
       const { readableStream, chunkByteLength } = (function () {
-        let ret;
+        let ret = {};
         if (Types.isSimpleObject(args)) {
           if (!(Object.hasOwn(args, "readableStream"))) {
             throw "Argument \"readableStream\" must be provided.";
