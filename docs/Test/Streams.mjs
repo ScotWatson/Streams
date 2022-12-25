@@ -648,6 +648,7 @@ export class ByteSplitter {
   #outputCallbackSet;
   #staticAllocate;
   #staticExecute;
+  #block;
   constructor(args) {
     try {
       this.#staticAllocate = Tasks.createStatic({
