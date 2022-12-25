@@ -396,6 +396,7 @@ export class AsyncByteReaderPushSource {
   }
   async #task() {
     try {
+      console.log(this.#callback);
       const inputView = new Memory.View({
         memoryBlock: this.#buffer,
         byteOffset: this.#offset,
@@ -409,7 +410,7 @@ export class AsyncByteReaderPushSource {
       if (this.#offset >= this.#buffer.byteLength) {
         this.#pushCallback.invoke(this.#buffer);
         this.#offset = 0;
-        this.#buffer = Memory.Block({
+        this.#buffer = new Memory.Block({
           byteLength: this.#chunkByteLength,
         });
       }
@@ -1040,7 +1041,7 @@ export class PassiveTransform {
       });
     }
   }
-  connect(args) {
+  connectOutput(args) {
     try {
       const newCallback = (function () {
         if (Types.isSimpleObject(args)) {
