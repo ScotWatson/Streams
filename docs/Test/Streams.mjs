@@ -1341,7 +1341,6 @@ export class PassiveTransformToByte {
         });
       }
       this.#outputCallback.invoke(outputByteLength);
-      this.#block = null;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PassiveTransformToByte.#execute",
