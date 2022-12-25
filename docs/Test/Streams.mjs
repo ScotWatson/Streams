@@ -420,6 +420,7 @@ export class AsyncFunctionPushSource {
   #pushCallback;
   #callback;
   #taskCallback;
+  #buffer;
   constructor(args) {
     try {
       this.#callback = args.callback;
