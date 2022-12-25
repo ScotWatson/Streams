@@ -319,6 +319,10 @@ export class AsyncByteReaderPushSource {
         throw "Argument \"callback\" must be provided.";
       }
       this.#callback = args.callback;
+      if (!("chunkByteLength" in args)) {
+        throw "Argument \"chunkByteLength\" must be provided.";
+      }
+      this.#chunkByteLength = args.chunkByteLength;
       const taskFunction = Tasks.createStatic({
         function: this.#task,
         this: this,
@@ -497,15 +501,21 @@ export class ReadableByteStreamPushSource {
   #cancelledSignalController;
   constructor(args) {
     try {
-      const readableStream = (function () {
+      const { readableStream, chunkByteLength } = (function () {
+        let ret;
         if (Types.isSimpleObject(args)) {
           if (!(Object.hasOwn(args, "readableStream"))) {
             throw "Argument \"readableStream\" must be provided.";
           }
-          return args.readableStream;
+          ret.readableStream = args.readableStream;
+          if (!(Object.hasOwn(args, "chunkByteLength"))) {
+            throw "Argument \"chunkByteLength\" must be provided.";
+          }
+          ret.chunkByteLength = args.chunkByteLength;
         } else {
-          return args;
+          throw "Invalid Arguments";
         }
+        return ret;
       })();
       if (!(readableStream instanceof self.ReadableStream)) {
         throw "Argument \"readableStream\" must be of type self.ReadableStream.";
@@ -524,6 +534,7 @@ export class ReadableByteStreamPushSource {
       });
       this.#pushSourceController = new AsyncByteReaderPushSource({
         callback: callbackController.callback,
+        chunkByteLength: chunkByteLength,
       });
       this.#closedSignalController = new SignalController();
       this.#cancelledSignalController = new SignalController();
