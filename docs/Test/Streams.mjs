@@ -315,6 +315,9 @@ export class AsyncByteReaderPushSource {
   #buffer;
   constructor(args) {
     try {
+      if (!("callback" in args)) {
+        throw "Argument \"callback\" must be provided.";
+      }
       this.#callback = args.callback;
       const taskFunction = Tasks.createStatic({
         function: this.#task,
@@ -502,33 +505,43 @@ export class ReadableByteStreamPushSource {
           return args;
         }
       })();
+      console.log(1);
       if (!(readableStream instanceof self.ReadableStream)) {
         throw "Argument \"readableStream\" must be of type self.ReadableStream.";
       }
+      console.log(2);
       if (readableStream.locked) {
         throw "Argument \"readableStream\" must be unlocked.";
       }
+      console.log(3);
       const reader = readableStream.getReader();
+      console.log(4);
       this.#reader = reader;
+      console.log(5);
       const callbackFunction = Tasks.createStatic({
         function: this.#process,
         this: this,
       });
+      console.log(6);
       const callbackController = new Tasks.CallbackController({
         invoke: callbackFunction,
       });
+      console.log(7);
       this.#pushSourceController = new AsyncByteReaderPushSource({
         callback: callbackController.callback,
       });
+      console.log(8);
       this.#closedSignalController = new SignalController();
+      console.log(9);
       this.#cancelledSignalController = new SignalController();
+      console.log(10);
       reader.closed.then(function () {
         this.#closedSignalController.dispatch();
         this.#cancelledSignalController.dispatch();
       });
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "ReadableStreamPushSource constructor",
+        functionName: "ReadableByteStreamPushSource constructor",
         error: e,
       });
     }
@@ -538,7 +551,7 @@ export class ReadableByteStreamPushSource {
       return this.#pushSourceController.connectOutput(args);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "ReadableStreamPushSource.connect",
+        functionName: "ReadableByteStreamPushSource.connect",
         error: e,
       });
     }
@@ -558,7 +571,7 @@ export class ReadableByteStreamPushSource {
       });
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "ReadableStreamPushSource.process",
+        functionName: "ReadableByteStreamPushSource.process",
         error: e,
       });
     }
@@ -568,7 +581,7 @@ export class ReadableByteStreamPushSource {
       return this.#closedSignalController.signal;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get ReadableStreamPushSource.closed",
+        functionName: "get ReadableByteStreamPushSource.closed",
         error: e,
       });
     }
@@ -578,7 +591,7 @@ export class ReadableByteStreamPushSource {
       return this.#cancelledSignalController.signal;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get ReadableStreamPushSource.cancelled",
+        functionName: "get ReadableByteStreamPushSource.cancelled",
         error: e,
       });
     }
