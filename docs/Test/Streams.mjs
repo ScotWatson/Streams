@@ -1238,6 +1238,7 @@ export class PassiveTransformToByte {
   #outputCallback;
   #transform;
   #state;
+  #outputByteRate;
   constructor(args) {
     try {
       const staticExecute = Tasks.createStatic({
@@ -1250,6 +1251,7 @@ export class PassiveTransformToByte {
       this.#outputCallback = new Tasks.Callback(null);
       this.#transform = args.transform;
       this.#state = args.state;
+      this.#outputByteRate = args.outputByteRate;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PassiveTransformToByte constructor",
