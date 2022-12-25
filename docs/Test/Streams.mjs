@@ -407,7 +407,8 @@ export class AsyncByteReaderPushSource {
       }
       this.#offset += outputView.byteLength;
       if (this.#offset >= this.#buffer.byteLength) {
-        this.#pushCallback.invoke(this.#buffer);
+        const returnView = new Memory.View(this.buffer);
+        this.#pushCallback.invoke(returnView);
         this.#offset = 0;
         this.#buffer = new Memory.Block({
           byteLength: this.#chunkByteLength,
