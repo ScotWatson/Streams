@@ -315,32 +315,23 @@ export class AsyncByteReaderPushSource {
   #buffer;
   constructor(args) {
     try {
-      console.log(1);
       if (!("callback" in args)) {
         throw "Argument \"callback\" must be provided.";
       }
-      console.log(2);
       this.#callback = args.callback;
-      console.log(3);
       const taskFunction = Tasks.createStatic({
         function: this.#task,
         this: this,
       });
-      console.log(4);
       const taskCallbackController = new Tasks.CallbackController({
         invoke: taskFunction,
       });
-      console.log(5);
       this.#taskCallback = taskCallbackController.callback;
-      console.log(6);
       this.#pushCallback = null;
-      console.log(7);
       this.#offset = 0;
-      console.log(8);
       this.#buffer = new Memory.Block({
         byteLength: this.#chunkByteLength,
       });
-      console.log(9);
       this.#taskCallback.invoke();
     } catch (e) {
       ErrorLog.rethrow({
