@@ -1531,7 +1531,7 @@ export class LazyTransform {
       if (!(Types.isInvocable(newCallback.isRevoked))) {
         throw "Callback.isRevoked must be invocable.";
       }
-      this.#outputCallback = newCallback;
+      this.#inputCallback = newCallback;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "LazyTransform.connectInput",
@@ -1632,7 +1632,7 @@ export class LazyByteTransform {
       if (!(Types.isInvocable(newCallback.isRevoked))) {
         throw "Callback.isRevoked must be invocable.";
       }
-      this.#outputCallback = newCallback;
+      this.#inputCallback = newCallback;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "LazyByteTransform.connectInput",
@@ -1734,7 +1734,7 @@ export class LazyTransformToByte {
       if (!(Types.isInvocable(newCallback.isRevoked))) {
         throw "Callback.isRevoked must be invocable.";
       }
-      this.#outputCallback = newCallback;
+      this.#inputCallback = newCallback;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "LazyTransformToByte.connectInput",
@@ -1838,7 +1838,7 @@ export class LazyTransformFromByte {
       if (!(Types.isInvocable(newCallback.isRevoked))) {
         throw "Callback.isRevoked must be invocable.";
       }
-      this.#outputCallback = newCallback;
+      this.#inputCallback = newCallback;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "LazyTransformFromByte.connectInput",
