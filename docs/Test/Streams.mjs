@@ -420,11 +420,10 @@ export class AsyncFunctionPushSource {
   #pushCallback;
   #callback;
   #taskCallback;
-  #buffer;
   constructor(args) {
     try {
       this.#callback = args.callback;
-      this.#pushCallback;
+      this.#pushCallback = new Callback(null);
       const taskFunction = Tasks.createStatic({
         function: this.#task,
         this: this,
@@ -447,7 +446,7 @@ export class AsyncFunctionPushSource {
           if (!(Object.hasOwn(args, "callback"))) {
             throw "Argument \"callback\" must be provided.";
           }
-          return args.sink;
+          return args.callback;
         } else {
           return args;
         }
@@ -474,13 +473,8 @@ export class AsyncFunctionPushSource {
   }
   async #task() {
     try {
-      const inputView = new Memory.View({
-        memoryBlock: this.#buffer,
-        byteOffset: this.#offset,
-        byteLength: this.#chunkByteLength - this.#offset,
-      });
       const item = await this.#callback();
-      this.#pushSourceController.execute(item);
+      this.#pushCallback.invoke(item);
       Tasks.queueTask(this.#taskCallback);
     } catch (e) {
       ErrorLog.rethrow({
