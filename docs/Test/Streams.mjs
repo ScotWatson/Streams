@@ -181,8 +181,8 @@ export class Pipe {
         this: this,
       });
       this.#outputCallbackController = new Tasks.UniqueCallbackController(staticOutput);
-      this.#bufferFullController = new SignalController();
-      this.#bufferEmptyController = new SignalController();
+      this.#bufferFullController = new Tasks.SignalController();
+      this.#bufferEmptyController = new Tasks.SignalController();
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "Pipe constructor",
@@ -536,8 +536,8 @@ export class ReadableByteStreamPushSource {
         callback: callbackController.callback,
         chunkByteLength: chunkByteLength,
       });
-      this.#closedSignalController = new SignalController();
-      this.#cancelledSignalController = new SignalController();
+      this.#closedSignalController = new Tasks.SignalController();
+      this.#cancelledSignalController = new Tasks.SignalController();
       reader.closed.then(function () {
         this.#closedSignalController.dispatch();
         this.#cancelledSignalController.dispatch();
@@ -871,8 +871,8 @@ export class BytePipe {
       this.#outputCallbackController = new Tasks.UniqueCallbackController({
         invoke: staticOutput,
       });
-      this.#bufferFullController = new SignalController();
-      this.#bufferEmptyController = new SignalController();
+      this.#bufferFullController = new Tasks.SignalController();
+      this.#bufferEmptyController = new Tasks.SignalController();
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePipe constructor",
