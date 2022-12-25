@@ -42,7 +42,7 @@ export class Splitter {
       });
     }
   }
-  connect(args) {
+  connectOutput(args) {
     try {
       const newCallback = (function () {
         if (Types.isSimpleObject(args)) {
@@ -74,7 +74,7 @@ export class Splitter {
       });
     }
   }
-  disconnectAllRevoked(args) {
+  disconnectAllRevokedOutputs(args) {
     try {
       const newCallbackSet = new Set();
       for (const callback of this.#outputCallbackSet) {
@@ -337,14 +337,14 @@ export class AsyncByteReaderPushSource {
       });
     }
   }
-  connect(args) {
+  connectOutput(args) {
     try {
       const newCallback = (function () {
         if (Types.isSimpleObject(args)) {
           if (!(Object.hasOwn(args, "callback"))) {
             throw "Argument \"callback\" must be provided.";
           }
-          return args.sink;
+          return args.callback;
         } else {
           return args;
         }
@@ -364,7 +364,7 @@ export class AsyncByteReaderPushSource {
       this.#pushCallback = newCallback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "AsyncByteReaderPushSource.connect",
+        functionName: "AsyncByteReaderPushSource.connectOutput",
         error: e,
       });
     }
@@ -439,7 +439,7 @@ export class AsyncFunctionPushSource {
       });
     }
   }
-  connect(args) {
+  connectOutput(args) {
     try {
       const newCallback = (function () {
         if (Types.isSimpleObject(args)) {
@@ -538,9 +538,9 @@ export class ReadableByteStreamPushSource {
       });
     }
   }
-  connect(args) {
+  connectOutput(args) {
     try {
-      return this.#pushSourceController.connect(args);
+      return this.#pushSourceController.connectOutput(args);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "ReadableStreamPushSource.connect",
