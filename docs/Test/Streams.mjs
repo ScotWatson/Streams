@@ -1188,7 +1188,7 @@ export class PassiveByteTransform {
       this.#block = new Memory.Block({
         byteLength: byteLength,
       });
-      return this.#block;
+      return new Memory.View(this.#block);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PassiveByteTransform.#allocate",
@@ -1203,7 +1203,7 @@ export class PassiveByteTransform {
           return null;
         }
         return new Memory.View({
-          memoryBlock: this.#block;
+          memoryBlock: this.#block,
           byteLength: byteLength,
         });
       })();
@@ -1433,7 +1433,7 @@ export class PassiveTransformFromByte {
       this.#block = new Memory.Block({
         byteLength: byteLength,
       });
-      return this.#block;
+      return new Memory.View(this.#block);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PassiveTransformFromByte.#allocate",
