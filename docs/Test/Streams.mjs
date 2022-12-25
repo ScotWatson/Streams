@@ -1000,6 +1000,7 @@ export class PassiveTransform {
   #inputCallbackController;
   #outputCallback;
   #transform;
+  #state;
   constructor(args) {
     try {
       const staticExecute = Tasks.createStatic({
@@ -1011,6 +1012,7 @@ export class PassiveTransform {
       });
       this.#outputCallback = new Tasks.Callback(null);
       this.#transform = args.transform;
+      this.#state = args.state;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PassiveTransform constructor",
@@ -1053,6 +1055,17 @@ export class PassiveTransform {
         throw "Callback.isRevoked must be invocable.";
       }
       this.#outputCallback = newCallback;
+      let output = this.#transform({
+        input: null,
+        state: this.#state,
+      });
+      while (output !== null) {
+        this.#outputCallback.invoke(output);
+        output = this.#transform({
+          input: null,
+          state: this.#state,
+        });
+      }
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PassiveTransform.connect",
@@ -1062,10 +1075,17 @@ export class PassiveTransform {
   }
   #execute(item) {
     try {
-      this.#transform({
+      let output = this.#transform({
         input: item,
-        output: this.#outputCallback,
+        state: this.#state,
       });
+      while (output !== null) {
+        this.#outputCallback.invoke(output);
+        output = this.#transform({
+          input: null,
+          state: this.#state,
+        });
+      }
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PassiveTransform.#execute",
@@ -1079,6 +1099,8 @@ export class PassiveByteTransform {
   #inputCallbackController;
   #outputCallback;
   #transform;
+  #state;
+  #outputByteRate;
   #block;
   constructor(args) {
     try {
@@ -1091,6 +1113,8 @@ export class PassiveByteTransform {
       });
       this.#outputCallback = new Tasks.ByteCallback(null);
       this.#transform = args.transform;
+      this.#state = args.state;
+      this.#outputByteRate = args.outputByteRate;
       this.#block = null;
     } catch (e) {
       ErrorLog.rethrow({
@@ -1140,6 +1164,22 @@ export class PassiveByteTransform {
         throw "Callback.isRevoked must be invocable.";
       }
       this.#outputCallback = newCallback;
+      let outputView = this.#outputCallback.allocate(this.#outputByteRate);
+      let outputByteLength = this.#transform({
+        input: null,
+        output: outputView,
+        state: this.#state,
+      });
+      while (outputByteLength === outputView.byteLength) {
+        this.#outputCallback.invoke(outputByteLength);
+        outputView = this.#outputCallback.allocate(this.#outputByteRate);
+        outputByteLength = this.#transform({
+          input: null,
+          output: outputView,
+          state: this.#state,
+        });
+      }
+      this.#outputCallback.invoke(outputByteLength);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PassiveByteTransform.connect",
@@ -1162,14 +1202,31 @@ export class PassiveByteTransform {
   }
   #execute(byteLength) {
     try {
-      const view = new Memory.View({
-        memoryBlock: this.#block;
-        byteLength: byteLength,
+      const inputView = (function () {
+        if (this.#block === null) {
+          return null;
+        }
+        return new Memory.View({
+          memoryBlock: this.#block;
+          byteLength: byteLength,
+        });
+      })();
+      let outputView = this.#outputCallback.allocate(this.#outputByteRate);
+      let outputByteLength = this.#transform({
+        input: inputView,
+        output: outputView,
+        state: this.#state,
       });
-      this.#transform({
-        input: view,
-        output: this.#outputCallback,
-      });
+      while (outputByteLength === outputView.byteLength) {
+        this.#outputCallback.invoke(outputByteLength);
+        outputView = this.#outputCallback.allocate(this.#outputByteRate);
+        outputByteLength = this.#transform({
+          input: null,
+          output: outputView,
+          state: this.#state,
+        });
+      }
+      this.#outputCallback.invoke(outputByteLength);
       this.#block = null;
     } catch (e) {
       ErrorLog.rethrow({
@@ -1184,6 +1241,7 @@ export class PassiveTransformToByte {
   #inputCallbackController;
   #outputCallback;
   #transform;
+  #state;
   constructor(args) {
     try {
       const staticExecute = Tasks.createStatic({
@@ -1195,6 +1253,7 @@ export class PassiveTransformToByte {
       });
       this.#outputCallback = new Tasks.Callback(null);
       this.#transform = args.transform;
+      this.#state = args.state;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PassiveTransformToByte constructor",
@@ -1243,6 +1302,22 @@ export class PassiveTransformToByte {
         throw "Callback.isRevoked must be invocable.";
       }
       this.#outputCallback = newCallback;
+      let outputView = this.#outputCallback.allocate(this.#outputByteRate);
+      let outputByteLength = this.#transform({
+        input: null,
+        output: outputView,
+        state: this.#state,
+      });
+      while (outputByteLength === outputView.byteLength) {
+        this.#outputCallback.invoke(outputByteLength);
+        outputView = this.#outputCallback.allocate(this.#outputByteRate);
+        outputByteLength = this.#transform({
+          input: null,
+          output: outputView,
+          state: this.#state,
+        });
+      }
+      this.#outputCallback.invoke(outputByteLength);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PassiveTransformToByte.connect",
@@ -1250,12 +1325,25 @@ export class PassiveTransformToByte {
       });
     }
   }
-  #execute(item) {
+  #execute(inputItem) {
     try {
-      this.#transform({
-        input: item,
-        output: this.#outputCallback,
+      let outputView = this.#outputCallback.allocate(this.#outputByteRate);
+      let outputByteLength = this.#transform({
+        input: inputItem,
+        output: outputView,
+        state: this.#state,
       });
+      while (outputByteLength === outputView.byteLength) {
+        this.#outputCallback.invoke(outputByteLength);
+        outputView = this.#outputCallback.allocate(this.#outputByteRate);
+        outputByteLength = this.#transform({
+          input: null,
+          output: outputView,
+          state: this.#state,
+        });
+      }
+      this.#outputCallback.invoke(outputByteLength);
+      this.#block = null;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PassiveTransformToByte.#execute",
@@ -1269,6 +1357,7 @@ export class PassiveTransformFromByte {
   #inputCallbackController;
   #outputCallback;
   #transform;
+  #state;
   #block;
   constructor(args) {
     try {
@@ -1281,6 +1370,7 @@ export class PassiveTransformFromByte {
       });
       this.#outputCallback = new Tasks.ByteCallback(null);
       this.#transform = args.transform;
+      this.#state = args.state;
       this.#block = null;
     } catch (e) {
       ErrorLog.rethrow({
@@ -1324,6 +1414,17 @@ export class PassiveTransformFromByte {
         throw "Callback.isRevoked must be invocable.";
       }
       this.#outputCallback = newCallback;
+      let outputItem = this.#transform({
+        input: null,
+        state: this.#state,
+      });
+      while (outputItem !== null) {
+        this.#outputCallback.invoke(outputItem);
+        outputItem = this.#transform({
+          input: null,
+          state: this.#state,
+        });
+      }
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PassiveTransformFromByte.connect",
@@ -1346,15 +1447,26 @@ export class PassiveTransformFromByte {
   }
   #execute(byteLength) {
     try {
-      const view = new Memory.View({
-        memoryBlock: this.#block;
-        byteLength: byteLength,
+      const inputView = (function () {
+        if (this.#block === null) {
+          return null;
+        }
+        return new Memory.View({
+          memoryBlock: this.#block;
+          byteLength: byteLength,
+        });
+      })();
+      let outputItem = this.#transform({
+        input: inputView,
+        state: this.#state,
       });
-      this.#transform({
-        input: view,
-        output: this.#outputCallback,
-      });
-      this.#block = null;
+      while (outputItem !== null) {
+        this.#outputCallback.invoke(outputItem);
+        outputItem = this.#transform({
+          input: null,
+          state: this.#state,
+        });
+      }
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PassiveTransformFromByte.#execute",
@@ -1368,6 +1480,7 @@ export class LazyTransform {
   #inputCallback;
   #outputCallbackController;
   #transform;
+  #state;
   constructor(args) {
     try {
       const staticExecute = Tasks.createStatic({
@@ -1379,6 +1492,7 @@ export class LazyTransform {
         invoke: staticExecute,
       });
       this.#transform = args.transform;
+      this.#state = args.state;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "LazyTransform constructor",
@@ -1432,9 +1546,26 @@ export class LazyTransform {
     try {
       // input: pass nothing, returns object
       // transform: returns object as output
-      return this.#transform({
-        input: this.#inputCallback,
+      let outputItem = this.#transform({
+        input: null,
+        state: this.#state,
       });
+      if (outputItem !== null) {
+        return outputItem;
+      }
+      let inputItem = this.#inputCallback.invoke();
+      outputItem = this.#transform({
+        input: inputItem,
+        state: this.#state,
+      });
+      while (outputItem === null) {
+        inputItem = this.#inputCallback.invoke();
+        outputItem = this.#transform({
+          input: inputItem,
+          state: this.#state,
+        });
+      }
+      return outputItem;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "LazyTransform.#execute",
@@ -1448,6 +1579,8 @@ export class LazyByteTransform {
   #inputCallback;
   #outputCallbackController;
   #transform;
+  #state;
+  #inputDataRate;
   constructor(args) {
     try {
       const staticExecute = Tasks.createStatic({
@@ -1459,6 +1592,8 @@ export class LazyByteTransform {
         invoke: staticExecute,
       });
       this.#transform = args.transform;
+      this.#state = args.state;
+      this.#inputDataRate = args.#inputDataRate;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "LazyByteTransform constructor",
@@ -1512,10 +1647,29 @@ export class LazyByteTransform {
     try {
       // input: create and pass Memory.View
       // transform: writes data to outputView
-      this.#transform({
-        input: this.#inputCallback,
+      let outputByteLength = this.#transform({
+        input: null,
         output: outputView,
+        state: this.#state,
       });
+      if (outputByteLength !== 0) {
+        return outputByteLength;
+      }
+      let inputView = this.#inputCallback.invoke(this.#inputDataRate);
+      outputByteLength = this.#transform({
+        input: inputView,
+        output: outputView,
+        state: this.#state,
+      });
+      while (outputByteLength === 0) {
+        inputView = this.#inputCallback.invoke(this.#inputDataRate);
+        outputByteLength = this.#transform({
+          input: inputView,
+          output: outputView,
+          state: this.#state,
+        });
+      }
+      return outputByteLength;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "LazyByteTransform.#execute",
@@ -1529,6 +1683,7 @@ export class LazyTransformToByte {
   #inputCallback;
   #outputCallbackController;
   #transform;
+  #state;
   constructor(args) {
     try {
       const staticExecute = Tasks.createStatic({
@@ -1540,6 +1695,7 @@ export class LazyTransformToByte {
         invoke: staticExecute,
       });
       this.#transform = args.transform;
+      this.#state = args.state;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "LazyTransformToByte constructor",
@@ -1589,13 +1745,33 @@ export class LazyTransformToByte {
       });
     }
   }
-  #execute() {
+  #execute(outputView) {
     try {
       // input: pass nothing, returns object
       // transform: returns object as output
-      return this.#transform({
-        input: this.#inputCallback,
+      let outputByteLength = this.#transform({
+        input: null,
+        output: outputView,
+        state: this.#state,
       });
+      if (outputByteLength !== 0) {
+        return outputByteLength;
+      }
+      let inputItem = this.#inputCallback.invoke();
+      outputByteLength = this.#transform({
+        input: inputItem,
+        output: outputView,
+        state: this.#state,
+      });
+      while (outputByteLength === 0) {
+        inputItem = this.#inputCallback.invoke();
+        outputByteLength = this.#transform({
+          input: inputItem,
+          output: outputView,
+          state: this.#state,
+        });
+      }
+      return outputByteLength;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "LazyTransformToByte.#execute",
@@ -1609,6 +1785,8 @@ export class LazyTransformFromByte {
   #inputCallback;
   #outputCallbackController;
   #transform;
+  #state;
+  #inputDataRate;
   constructor(args) {
     try {
       const staticExecute = Tasks.createStatic({
@@ -1620,6 +1798,8 @@ export class LazyTransformFromByte {
         invoke: staticExecute,
       });
       this.#transform = args.transform;
+      this.#state = args.state;
+      this.#inputDataRate = args.#inputDataRate;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "LazyTransformFromByte constructor",
@@ -1669,14 +1849,30 @@ export class LazyTransformFromByte {
       });
     }
   }
-  #execute(outputView) {
+  #execute() {
     try {
       // input: create and pass Memory.View
       // transform: writes data to outputView
-      this.#transform({
-        input: this.#inputCallback,
-        output: outputView,
+      let outputItem = this.#transform({
+        input: null,
+        state: this.#state,
       });
+      if (outputItem !== null) {
+        return outputItem;
+      }
+      let inputView = this.#inputCallback.invoke();
+      outputItem = this.#transform({
+        input: inputView,
+        state: this.#state,
+      });
+      while (outputItem === null) {
+        inputView = this.#inputCallback.invoke();
+        outputItem = this.#transform({
+          input: inputView,
+          state: this.#state,
+        });
+      }
+      return outputItem;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "LazyTransformFromByte.#execute",
