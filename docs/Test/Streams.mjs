@@ -536,16 +536,21 @@ export class ReadableByteStreamPushSource {
       });
       this.#closedSignalController = new Tasks.SignalController();
       this.#cancelledSignalController = new Tasks.SignalController();
-      reader.closed.then(function () {
-        this.#closedSignalController.dispatch();
-        this.#cancelledSignalController.dispatch();
+      const dispatchClose = Tasks.createStatic({
+        function: this.#dispatchClose,
+        this: this,
       });
+      reader.closed.then(dispatchClose);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "ReadableByteStreamPushSource constructor",
         error: e,
       });
     }
+  }
+  #dispatchClose() {
+    this.#closedSignalController.dispatch();
+    this.#cancelledSignalController.dispatch();
   }
   connectOutput(args) {
     try {
