@@ -372,7 +372,7 @@ export class AsyncByteReaderPushSource {
   peek() {
     try {
       const partialData = new Memory.View({
-        memoryBlock: this.#block,
+        memoryBlock: this.#buffer,
         byteOffset: 0,
         byteLength: this.#offset,
       });
@@ -626,7 +626,7 @@ export class WritableStreamPushSink {
       });
     }
   }
-  get callback() {
+  get inputCallback() {
     try {
       return this.#pushCallbackController.callback;
     } catch (e) {
@@ -636,7 +636,7 @@ export class WritableStreamPushSink {
       });
     }
   }
-  disconnect() {
+  disconnectInput() {
     try {
       this.#pushCallbackController.replace(null);
     } catch (e) {
@@ -685,7 +685,7 @@ export class ByteSplitter {
       });
     }
   }
-  connect(args) {
+  connectOutput(args) {
     try {
       const newCallback = (function () {
         if (Types.isSimpleObject(args)) {
@@ -723,7 +723,7 @@ export class ByteSplitter {
       });
     }
   }
-  disconnectAllRevoked(args) {
+  disconnectAllRevokedOutputs(args) {
     try {
       const newCallbackSet = new Set();
       for (const callback of this.#outputCallbackSet) {
@@ -734,7 +734,7 @@ export class ByteSplitter {
       this.#outputCallbackSet = newCallbackSet;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "ByteSplitter.disconnectAllRevoked",
+        functionName: "ByteSplitter.disconnectAllRevokedOutputs",
         error: e,
       });
     }
@@ -1133,7 +1133,7 @@ export class PassiveByteTransform {
       });
     }
   }
-  connect(args) {
+  connectOutput(args) {
     try {
       const newCallback = (function () {
         if (Types.isSimpleObject(args)) {
@@ -1271,7 +1271,7 @@ export class PassiveTransformToByte {
       });
     }
   }
-  connect(args) {
+  connectOutput(args) {
     try {
       const newCallback = (function () {
         if (Types.isSimpleObject(args)) {
@@ -1389,7 +1389,7 @@ export class PassiveTransformFromByte {
       });
     }
   }
-  connect(args) {
+  connectOutput(args) {
     try {
       const newCallback = (function () {
         if (Types.isSimpleObject(args)) {
