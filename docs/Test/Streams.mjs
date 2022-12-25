@@ -515,10 +515,10 @@ export class ReadableByteStreamPushSource {
         this: this,
       });
       const callbackController = new Tasks.CallbackController({
-        invoke: callbackFunction;
+        invoke: callbackFunction,
       });
       this.#pushSourceController = new AsyncByteReaderPushSource({
-        callback: callbackController.callback;
+        callback: callbackController.callback,
       });
       this.#closedSignalController = new SignalController();
       this.#cancelledSignalController = new SignalController();
