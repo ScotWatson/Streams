@@ -416,6 +416,7 @@ export class AsyncByteReaderPushSource {
           byteLength: this.#chunkByteLength,
         });
       }
+      console.log(this.#taskCallback);
       Tasks.queueTask(this.#taskCallback);
     } catch (e) {
       ErrorLog.rethrow({
