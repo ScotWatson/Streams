@@ -740,8 +740,7 @@ export class ByteSplitter {
       this.#block = new Memory.Block({
         byteLength: byteLength,
       });
-      this.#view = new Memory.View(this.#block);
-      return this.#view;
+      return new Memory.View(this.#block);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "ByteSplitter.#allocate",
@@ -751,9 +750,10 @@ export class ByteSplitter {
   }
   #execute(byteLength) {
     try {
+      const inputView = new Memory.View(this.#block);
       for (const callback of this.#outputCallbackSet) {
         const view = callback.allocate(byteLength);
-        view.set(this.#view);
+        view.set(inputView);
         callback.invoke(byteLength);
       }
     } catch (e) {
