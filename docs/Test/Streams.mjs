@@ -1449,7 +1449,7 @@ export class PassiveTransformFromByte {
           return null;
         }
         return new Memory.View({
-          memoryBlock: this.#block;
+          memoryBlock: this.#block,
           byteLength: byteLength,
         });
       })();
