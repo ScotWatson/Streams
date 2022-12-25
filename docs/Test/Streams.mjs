@@ -494,7 +494,7 @@ export class ReadableByteStreamPushSource {
     try {
       const readableStream = (function () {
         if (Types.isSimpleObject(args)) {
-          if (Object.hasOwn(args, "readableStream")) {
+          if (!(Object.hasOwn(args, "readableStream"))) {
             throw "Argument \"readableStream\" must be provided.";
           }
           return args.readableStream;
