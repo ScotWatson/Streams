@@ -895,7 +895,7 @@ export class BytePipe {
   }
   #allocate(byteLength) {
     try {
-      this.#queue.reserve(byteLength);
+      return this.#queue.reserve(byteLength);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePipe.#allocate",
