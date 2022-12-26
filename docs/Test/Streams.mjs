@@ -1938,6 +1938,7 @@ export class BlobChunkPushSource {
   }
   async #execute() {
     try {
+      console.log(this.#blobIndex);
       const thisSlice = (function () {
         if (this.#blobIndex + this.#outputByteRate > this.#blob.length) {
           return this.#blob.slice(this.#blobIndex);
@@ -1949,6 +1950,7 @@ export class BlobChunkPushSource {
       const thisBlock = new Memory.Block(thisBuffer);
       const thisView = new Memory.View(thisBlock);
       this.#blobIndex += thisSlice.size;
+      console.log(this.#blobIndex);
       this.#outputCallback.invoke(thisView);
       if (this.#blobIndex < this.#blob.size) {
         Tasks.queueTask(this.#taskCallback);
