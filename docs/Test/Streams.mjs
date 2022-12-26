@@ -1940,12 +1940,12 @@ export class BlobChunkPushSource {
     try {
       const index = this.#blobIndex;
       const byteRate = this.#outputByteRate;
-      const blobLength = this.#blob.length;
+      const blob = this.#blob;
       const thisSlice = (function () {
-        if (index + byteRate > blobLength) {
-          return this.#blob.slice(index);
+        if (index + byteRate > blob.length) {
+          return blob.slice(index);
         } else {
-          return this.#blob.slice(index, index + byteRate);
+          return blob.slice(index, index + byteRate);
         }
       })();
       const thisBuffer = await thisSlice.arrayBuffer();
