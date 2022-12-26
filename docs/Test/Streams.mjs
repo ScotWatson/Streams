@@ -308,9 +308,9 @@ export class Pump {
 
 export class AsyncByteReaderPushSource {
   #pushCallback;
-  #callback;
+  #asyncCallback;
   #taskCallback;
-  #chunkByteLength;
+  #outputByteRate;
   #offset;
   #buffer;
   constructor(args) {
@@ -318,11 +318,11 @@ export class AsyncByteReaderPushSource {
       if (!("callback" in args)) {
         throw "Argument \"callback\" must be provided.";
       }
-      this.#callback = args.callback;
-      if (!("chunkByteLength" in args)) {
-        throw "Argument \"chunkByteLength\" must be provided.";
+      this.#asyncCallback = args.callback;
+      if (!("outputByteRate" in args)) {
+        throw "Argument \"outputByteRate\" must be provided.";
       }
-      this.#chunkByteLength = args.chunkByteLength;
+      this.#outputByteRate = args.outputByteRate;
       const taskFunction = Tasks.createStatic({
         function: this.#task,
         this: this,
@@ -399,24 +399,23 @@ export class AsyncByteReaderPushSource {
       const inputView = new Memory.View({
         memoryBlock: this.#buffer,
         byteOffset: this.#offset,
-        byteLength: this.#chunkByteLength - this.#offset,
+        byteLength: this.#outputByteRate - this.#offset,
       });
-      const outputView = await this.#callback.invoke(inputView);
-      if (outputView !== null) {
-        if (!("byteLength" in outputView)) {
-          throw "callback must return a view.";
-        }
-        this.#offset += outputView.byteLength;
-        if (this.#offset >= this.#buffer.byteLength) {
-          const returnView = new Memory.View({
-            memoryBlock: this.#buffer,
-          });
-          this.#pushCallback.invoke(returnView);
-          this.#offset = 0;
-          this.#buffer = new Memory.Block({
-            byteLength: this.#chunkByteLength,
-          });
-        }
+      const outputByteLength = await this.#callback.invoke(inputView);
+      if (outputByteLength !== 0) {
+        // 0 output length indicates that no more data is available, therefore stop queueing tasks.
+        return;
+      }
+      this.#offset += outputByteLength;
+      if (this.#offset >= this.#buffer.byteLength) {
+        const returnView = new Memory.View({
+          memoryBlock: this.#buffer,
+        });
+        this.#pushCallback.invoke(returnView);
+        this.#offset = 0;
+        this.#buffer = new Memory.Block({
+          byteLength: this.#outputByteRate,
+        });
       }
       Tasks.queueTask(this.#taskCallback);
     } catch (e) {
@@ -537,7 +536,7 @@ export class ReadableByteStreamPushSource {
       });
       this.#pushSourceController = new AsyncByteReaderPushSource({
         callback: callbackController.callback,
-        chunkByteLength: chunkByteLength,
+        outputByteRate: outputByteRate,
       });
       this.#closedSignalController = new Tasks.SignalController();
       this.#cancelledSignalController = new Tasks.SignalController();
@@ -571,15 +570,10 @@ export class ReadableByteStreamPushSource {
     try {
       const uint8Array = view.toUint8Array();
       const { value, done } = await this.#reader.read(uint8Array);
-      if (!(value instanceof Uint8Array)) {
+      if (done) {
         return null;
       }
-      const block = new Memory.Block(value.buffer);
-      return new Memory.View({
-        memoryBlock: block,
-        byteOffset: value.byteOffset,
-        byteLength: value.byteLength,
-      });
+      return value.byteLength;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "ReadableByteStreamPushSource.process",
@@ -1899,6 +1893,49 @@ export class LazyTransformFromByte {
         functionName: "LazyTransformFromByte.#execute",
         error: e,
       });
+    }
+  }
+}
+
+export class BlobChunkPushSource {
+  #blob;
+  #outputByteRate;
+  #outputCallback;
+  #blobIndex;
+  constructor(args) {
+    this.#blob = args.blob;
+    this.#outputByteRate = args.outputByteRate;
+    const staticExecute = Tasks.createStatic({
+      function: this.#execute,
+      this: this,
+    });
+    this.#taskCallback = new Callback({
+      invoke: staticExecute,
+    });
+    this.#outputCallback = new Callback(null);
+    this.#blobIndex = 0;
+  }
+  get connectOutput(args) {
+    this.#outputCallback = args.callback;
+    if (this.#blobIndex < this.#blob.size) {
+      Tasks.queueTask(this.#taskCallback);
+    }
+  }
+  async #execute() {
+    const thisSlice = (function () {
+      if (this.#blobIndex + this.#outputByteRate > this.#blob.length) {
+        return this.#blob.slice(this.#blobIndex);
+      } else {
+        return this.#blob.slice(this.#blobIndex, this.#blobIndex + this.#outputByteRate);
+      }
+    })();
+    const thisBuffer = await thisSlice.arrayBuffer();
+    const thisBlock = new Memory.Block(thisBuffer);
+    const thisView = new Memory.View(thisBlock);
+    this.#blobIndex += thisSlice.length;
+    this.#outputCallback.invoke(thisView);
+    if (this.#blobIndex < this.#blob.size) {
+      Tasks.queueTask(this.#taskCallback);
     }
   }
 }
