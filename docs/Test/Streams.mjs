@@ -1952,6 +1952,7 @@ export class BlobChunkPushSource {
       const thisBlock = new Memory.Block(thisBuffer);
       const thisView = new Memory.View(thisBlock);
       this.#blobIndex += thisSlice.size;
+      console.log(this.#outputCallback);
       this.#outputCallback.invoke(thisView);
       if (this.#blobIndex < this.#blob.size) {
         Tasks.queueTask(this.#taskCallback);
