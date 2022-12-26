@@ -1900,6 +1900,7 @@ export class LazyTransformFromByte {
 export class BlobChunkPushSource {
   #blob;
   #outputByteRate;
+  #taskCallback;
   #outputCallback;
   #blobIndex;
   constructor(args) {
