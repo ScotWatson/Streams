@@ -1915,7 +1915,7 @@ export class BlobChunkPushSource {
     this.#outputCallback = new Callback(null);
     this.#blobIndex = 0;
   }
-  get connectOutput(args) {
+  connectOutput(args) {
     this.#outputCallback = args.callback;
     if (this.#blobIndex < this.#blob.size) {
       Tasks.queueTask(this.#taskCallback);
