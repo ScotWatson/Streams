@@ -1904,39 +1904,60 @@ export class BlobChunkPushSource {
   #outputCallback;
   #blobIndex;
   constructor(args) {
-    this.#blob = args.blob;
-    this.#outputByteRate = args.outputByteRate;
-    const staticExecute = Tasks.createStatic({
-      function: this.#execute,
-      this: this,
-    });
-    this.#taskCallback = new Callback({
-      invoke: staticExecute,
-    });
-    this.#outputCallback = new Callback(null);
-    this.#blobIndex = 0;
+    try {
+      this.#blob = args.blob;
+      this.#outputByteRate = args.outputByteRate;
+      const staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#taskCallback = new Tasks.Callback({
+        invoke: staticExecute,
+      });
+      this.#outputCallback = new Tasks.Callback(null);
+      this.#blobIndex = 0;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BlobChunkPushSource constructor",
+        error: e,
+      });
+    }
   }
   connectOutput(args) {
-    this.#outputCallback = args.callback;
-    if (this.#blobIndex < this.#blob.size) {
-      Tasks.queueTask(this.#taskCallback);
+    try {
+      this.#outputCallback = args.callback;
+      if (this.#blobIndex < this.#blob.size) {
+        Tasks.queueTask(this.#taskCallback);
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BlobChunkPushSource.connectOutput",
+        error: e,
+      });
     }
   }
   async #execute() {
-    const thisSlice = (function () {
-      if (this.#blobIndex + this.#outputByteRate > this.#blob.length) {
-        return this.#blob.slice(this.#blobIndex);
-      } else {
-        return this.#blob.slice(this.#blobIndex, this.#blobIndex + this.#outputByteRate);
+    try {
+      const thisSlice = (function () {
+        if (this.#blobIndex + this.#outputByteRate > this.#blob.length) {
+          return this.#blob.slice(this.#blobIndex);
+        } else {
+          return this.#blob.slice(this.#blobIndex, this.#blobIndex + this.#outputByteRate);
+        }
+      })();
+      const thisBuffer = await thisSlice.arrayBuffer();
+      const thisBlock = new Memory.Block(thisBuffer);
+      const thisView = new Memory.View(thisBlock);
+      this.#blobIndex += thisSlice.length;
+      this.#outputCallback.invoke(thisView);
+      if (this.#blobIndex < this.#blob.size) {
+        Tasks.queueTask(this.#taskCallback);
       }
-    })();
-    const thisBuffer = await thisSlice.arrayBuffer();
-    const thisBlock = new Memory.Block(thisBuffer);
-    const thisView = new Memory.View(thisBlock);
-    this.#blobIndex += thisSlice.length;
-    this.#outputCallback.invoke(thisView);
-    if (this.#blobIndex < this.#blob.size) {
-      Tasks.queueTask(this.#taskCallback);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BlobChunkPushSource.#execute",
+        error: e,
+      });
     }
   }
 }
