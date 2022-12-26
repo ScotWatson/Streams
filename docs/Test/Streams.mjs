@@ -1925,7 +1925,14 @@ export class BlobChunkPushSource {
   }
   connectOutput(args) {
     try {
-      this.#outputCallback = args.callback;
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          return args.callback;
+        } else {
+          return args;
+        }
+      })();
+      this.#outputCallback = newCallback;
       if (this.#blobIndex < this.#blob.size) {
         Tasks.queueTask(this.#taskCallback);
       }
@@ -1952,7 +1959,6 @@ export class BlobChunkPushSource {
       const thisBlock = new Memory.Block(thisBuffer);
       const thisView = new Memory.View(thisBlock);
       this.#blobIndex += thisSlice.size;
-      console.log(this.#outputCallback);
       this.#outputCallback.invoke(thisView);
       if (this.#blobIndex < this.#blob.size) {
         Tasks.queueTask(this.#taskCallback);
