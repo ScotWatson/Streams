@@ -1938,19 +1938,18 @@ export class BlobChunkPushSource {
   }
   async #execute() {
     try {
-      console.log(this.#blobIndex);
+      const index = this.#blobIndex;
       const thisSlice = (function () {
-        if (this.#blobIndex + this.#outputByteRate > this.#blob.length) {
-          return this.#blob.slice(this.#blobIndex);
+        if (index + this.#outputByteRate > this.#blob.length) {
+          return this.#blob.slice(index);
         } else {
-          return this.#blob.slice(this.#blobIndex, this.#blobIndex + this.#outputByteRate);
+          return this.#blob.slice(index, index + this.#outputByteRate);
         }
       })();
       const thisBuffer = await thisSlice.arrayBuffer();
       const thisBlock = new Memory.Block(thisBuffer);
       const thisView = new Memory.View(thisBlock);
       this.#blobIndex += thisSlice.size;
-      console.log(this.#blobIndex);
       this.#outputCallback.invoke(thisView);
       if (this.#blobIndex < this.#blob.size) {
         Tasks.queueTask(this.#taskCallback);
