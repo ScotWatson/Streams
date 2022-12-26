@@ -401,7 +401,7 @@ export class AsyncByteReaderPushSource {
         byteOffset: this.#offset,
         byteLength: this.#outputByteRate - this.#offset,
       });
-      const outputByteLength = await this.#callback.invoke(inputView);
+      const outputByteLength = await this.#asyncCallback.invoke(inputView);
       if (outputByteLength !== 0) {
         // 0 output length indicates that no more data is available, therefore stop queueing tasks.
         return;
