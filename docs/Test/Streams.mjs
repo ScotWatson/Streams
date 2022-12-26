@@ -1903,6 +1903,7 @@ export class BlobChunkPushSource {
   #taskCallback;
   #outputCallback;
   #blobIndex;
+  #eofSignalController;
   constructor(args) {
     try {
       this.#blob = args.blob;
@@ -1916,6 +1917,7 @@ export class BlobChunkPushSource {
       });
       this.#outputCallback = new Tasks.Callback(null);
       this.#blobIndex = 0;
+      this.#eofSignalController = new SignalController();
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BlobChunkPushSource constructor",
@@ -1943,6 +1945,16 @@ export class BlobChunkPushSource {
       });
     }
   }
+  get eofSignal() {
+    try {
+      return this.#eofSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BlobChunkPushSource.eofSignal",
+        error: e,
+      });
+    }
+  }
   async #execute() {
     try {
       const index = this.#blobIndex;
@@ -1962,6 +1974,8 @@ export class BlobChunkPushSource {
       this.#outputCallback.invoke(thisView);
       if (this.#blobIndex < this.#blob.size) {
         Tasks.queueTask(this.#taskCallback);
+      } else {
+        this.#eofSignalController.dispatch();
       }
     } catch (e) {
       ErrorLog.rethrow({
@@ -1970,4 +1984,5 @@ export class BlobChunkPushSource {
       });
     }
   }
+  
 }
