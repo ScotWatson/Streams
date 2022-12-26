@@ -1939,11 +1939,13 @@ export class BlobChunkPushSource {
   async #execute() {
     try {
       const index = this.#blobIndex;
+      const byteRate = this.#outputByteRate;
+      const blobLength = this.#blob.length;
       const thisSlice = (function () {
-        if (index + this.#outputByteRate > this.#blob.length) {
+        if (index + byteRate > blobLength) {
           return this.#blob.slice(index);
         } else {
-          return this.#blob.slice(index, index + this.#outputByteRate);
+          return this.#blob.slice(index, index + byteRate);
         }
       })();
       const thisBuffer = await thisSlice.arrayBuffer();
