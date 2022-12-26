@@ -1917,7 +1917,7 @@ export class BlobChunkPushSource {
       });
       this.#outputCallback = new Tasks.Callback(null);
       this.#blobIndex = 0;
-      this.#eofSignalController = new SignalController();
+      this.#eofSignalController = new Tasks.SignalController();
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BlobChunkPushSource constructor",
