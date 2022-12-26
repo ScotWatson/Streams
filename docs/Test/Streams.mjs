@@ -402,21 +402,22 @@ export class AsyncByteReaderPushSource {
         byteLength: this.#chunkByteLength - this.#offset,
       });
       const outputView = await this.#callback.invoke(inputView);
-      if (!("byteLength" in outputView)) {
-        throw "callback must return a view.";
+      if (outputView !== null) {
+        if (!("byteLength" in outputView)) {
+          throw "callback must return a view.";
+        }
+        this.#offset += outputView.byteLength;
+        if (this.#offset >= this.#buffer.byteLength) {
+          const returnView = new Memory.View({
+            memoryBlock: this.#buffer,
+          });
+          this.#pushCallback.invoke(returnView);
+          this.#offset = 0;
+          this.#buffer = new Memory.Block({
+            byteLength: this.#chunkByteLength,
+          });
+        }
       }
-      this.#offset += outputView.byteLength;
-      if (this.#offset >= this.#buffer.byteLength) {
-        const returnView = new Memory.View({
-          memoryBlock: this.#buffer,
-        });
-        this.#pushCallback.invoke(returnView);
-        this.#offset = 0;
-        this.#buffer = new Memory.Block({
-          byteLength: this.#chunkByteLength,
-        });
-      }
-      console.log(this.#taskCallback);
       Tasks.queueTask(this.#taskCallback);
     } catch (e) {
       ErrorLog.rethrow({
@@ -525,7 +526,7 @@ export class ReadableByteStreamPushSource {
       if (readableStream.locked) {
         throw "Argument \"readableStream\" must be unlocked.";
       }
-      const reader = readableStream.getReader();
+      const reader = readableStream.getReader({ mode: "byob" });
       this.#reader = reader;
       const callbackFunction = Tasks.createStatic({
         function: this.#process,
