@@ -69,7 +69,7 @@ export class Splitter {
       this.#outputCallbackSet.add(newCallback);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Splitter.connect",
+        functionName: "Splitter.connectOutput",
         error: e,
       });
     }
@@ -85,7 +85,7 @@ export class Splitter {
       this.#outputCallbackSet = newCallbackSet;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Splitter.connect",
+        functionName: "Splitter.disconnectAllRevokedOutputs",
         error: e,
       });
     }
@@ -97,7 +97,7 @@ export class Splitter {
       }
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Splitter.connect",
+        functionName: "Splitter.#execute",
         error: e,
       });
     }
@@ -477,7 +477,7 @@ export class AsyncFunctionPushSource {
       this.#pushCallback = newCallback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "AsyncFunctionPushSource.connect",
+        functionName: "AsyncFunctionPushSource.connectOutput",
         error: e,
       });
     }
@@ -561,7 +561,7 @@ export class ReadableByteStreamPushSource {
       return this.#pushSourceController.connectOutput(args);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "ReadableByteStreamPushSource.connect",
+        functionName: "ReadableByteStreamPushSource.connectOutput",
         error: e,
       });
     }
@@ -654,7 +654,7 @@ export class WritableStreamPushSink {
       this.#pushCallbackController.replace(null);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "WritableStreamPushSink.disconnect",
+        functionName: "WritableStreamPushSink.disconnectInput",
         error: e,
       });
     }
@@ -732,7 +732,7 @@ export class ByteSplitter {
       this.#outputCallbackSet.add(newCallback);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "ByteSplitter.connect",
+        functionName: "ByteSplitter.connectOutput",
         error: e,
       });
     }
@@ -1098,7 +1098,7 @@ export class PassiveTransform {
       }
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveTransform.connect",
+        functionName: "PassiveTransform.connectOutput",
         error: e,
       });
     }
@@ -1248,7 +1248,7 @@ export class PassiveByteTransform {
       this.#outputCallback.invoke(outputByteLength);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveByteTransform.connect",
+        functionName: "PassiveByteTransform.connectOutput",
         error: e,
       });
     }
@@ -1428,7 +1428,7 @@ export class PassiveTransformToByte {
       this.#outputCallback.invoke(outputByteLength);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveTransformToByte.connect",
+        functionName: "PassiveTransformToByte.connectOutput",
         error: e,
       });
     }
@@ -1574,7 +1574,7 @@ export class PassiveTransformFromByte {
       }
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveTransformFromByte.connect",
+        functionName: "PassiveTransformFromByte.connectOutput",
         error: e,
       });
     }
