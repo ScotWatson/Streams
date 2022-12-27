@@ -1013,8 +1013,11 @@ export class BytePump {
 export class PassiveTransform {
   #inputCallbackController;
   #outputCallback;
+  #init;
   #transform;
+  #flush;
   #state;
+  #flushedSignalController;
   constructor(args) {
     try {
       const staticExecute = Tasks.createStatic({
@@ -1025,8 +1028,11 @@ export class PassiveTransform {
         invoke: staticExecute,
       });
       this.#outputCallback = new Tasks.Callback(null);
+      this.#init = args.init;
       this.#transform = args.transform;
-      this.#state = args.state;
+      this.#flush = args.flush;
+      this.#state = this.#init();
+      this.#flushedSignalController = new SignalController();
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PassiveTransform constructor",
@@ -1040,6 +1046,16 @@ export class PassiveTransform {
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "get PassiveTransform.inputCallback",
+        error: e,
+      });
+    }
+  }
+  disconnectInput() {
+    try {
+      this.#inputCallbackController.revokeCallback();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PassiveTransform.disconnectInput",
         error: e,
       });
     }
@@ -1087,6 +1103,36 @@ export class PassiveTransform {
       });
     }
   }
+  flush() {
+    try {
+      let output = this.#flush({
+        state: this.#state,
+      });
+      while (output !== null) {
+        this.#outputCallback.invoke(output);
+        output = this.#flush({
+          state: this.#state,
+        });
+      }
+      this.#state = this.#init();
+      this.#flushedSignalController.dispatch();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveTransform.flush",
+        error: e,
+      });
+    }
+  }
+  get flushedSignal() {
+    try {
+      return this.#flushedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PassiveTransform.flushedSignal",
+        error: e,
+      });
+    }
+  }
   #execute(item) {
     try {
       let output = this.#transform({
@@ -1112,8 +1158,11 @@ export class PassiveTransform {
 export class PassiveByteTransform {
   #inputCallbackController;
   #outputCallback;
+  #init;
   #transform;
+  #flush;
   #state;
+  #flushedSignalController;
   #outputByteRate;
   #block;
   constructor(args) {
@@ -1126,8 +1175,11 @@ export class PassiveByteTransform {
         invoke: staticExecute,
       });
       this.#outputCallback = new Tasks.ByteCallback(null);
+      this.#init = args.init;
       this.#transform = args.transform;
-      this.#state = args.state;
+      this.#flush = args.flush;
+      this.#state = this.#init();
+      this.#flushedSignalController = new SignalController();
       this.#outputByteRate = args.outputByteRate;
       this.#block = null;
     } catch (e) {
@@ -1214,6 +1266,40 @@ export class PassiveByteTransform {
       });
     }
   }
+  flush() {
+    try {
+      let outputView = this.#outputCallback.allocate(this.#outputByteRate);
+      let outputByteLength = this.#flush({
+        output: outputView,
+        state: this.#state,
+      });
+      while (outputByteLength !== 0) {
+        this.#outputCallback.invoke(outputByteLength);
+        outputView = this.#outputCallback.allocate(this.#outputByteRate);
+        outputByteLength = this.#flush({
+          output: outputView,
+          state: this.#state,
+        });
+      }
+      this.#state = this.#init();
+      this.#flushedSignalController.dispatch();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveByteTransform.flush",
+        error: e,
+      });
+    }
+  }
+  get flushedSignal() {
+    try {
+      return this.#flushedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PassiveByteTransform.flushedSignal",
+        error: e,
+      });
+    }
+  }
   #execute(byteLength) {
     try {
       const inputView = (function () {
@@ -1254,8 +1340,11 @@ export class PassiveByteTransform {
 export class PassiveTransformToByte {
   #inputCallbackController;
   #outputCallback;
+  #init;
   #transform;
+  #flush;
   #state;
+  #flushedSignalController;
   #outputByteRate;
   constructor(args) {
     try {
@@ -1267,8 +1356,11 @@ export class PassiveTransformToByte {
         invoke: staticExecute,
       });
       this.#outputCallback = new Tasks.Callback(null);
+      this.#init = args.init;
       this.#transform = args.transform;
-      this.#state = args.state;
+      this.#flush = args.flush;
+      this.#state = this.#init();
+      this.#flushedSignalController = new SignalController();
       this.#outputByteRate = args.outputByteRate;
     } catch (e) {
       ErrorLog.rethrow({
@@ -1341,6 +1433,40 @@ export class PassiveTransformToByte {
       });
     }
   }
+  flush() {
+    try {
+      let outputView = this.#outputCallback.allocate(this.#outputByteRate);
+      let outputByteLength = this.#flush({
+        output: outputView,
+        state: this.#state,
+      });
+      while (outputByteLength !== 0) {
+        this.#outputCallback.invoke(outputByteLength);
+        outputView = this.#outputCallback.allocate(this.#outputByteRate);
+        outputByteLength = this.#flush({
+          output: outputView,
+          state: this.#state,
+        });
+      }
+      this.#state = this.#init();
+      this.#flushedSignalController.dispatch();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveTransformToByte.flush",
+        error: e,
+      });
+    }
+  }
+  get flushedSignal() {
+    try {
+      return this.#flushedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PassiveTransformToByte.flushedSignal",
+        error: e,
+      });
+    }
+  }
   #execute(inputItem) {
     try {
       let outputView = this.#outputCallback.allocate(this.#outputByteRate);
@@ -1371,8 +1497,11 @@ export class PassiveTransformToByte {
 export class PassiveTransformFromByte {
   #inputCallbackController;
   #outputCallback;
+  #init;
   #transform;
+  #flush;
   #state;
+  #flushedSignalController;
   #block;
   constructor(args) {
     try {
@@ -1384,8 +1513,11 @@ export class PassiveTransformFromByte {
         invoke: staticExecute,
       });
       this.#outputCallback = new Tasks.ByteCallback(null);
+      this.#init = args.init;
       this.#transform = args.transform;
-      this.#state = args.state;
+      this.#flush = args.flush;
+      this.#state = this.#init();
+      this.#flushedSignalController = new SignalController();
       this.#block = null;
     } catch (e) {
       ErrorLog.rethrow({
@@ -1443,6 +1575,36 @@ export class PassiveTransformFromByte {
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PassiveTransformFromByte.connect",
+        error: e,
+      });
+    }
+  }
+  flush() {
+    try {
+      let output = this.#flush({
+        state: this.#state,
+      });
+      while (output !== null) {
+        this.#outputCallback.invoke(output);
+        output = this.#flush({
+          state: this.#state,
+        });
+      }
+      this.#state = this.#init();
+      this.#flushedSignalController.dispatch();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveTransformFromByte.flush",
+        error: e,
+      });
+    }
+  }
+  get flushedSignal() {
+    try {
+      return this.#flushedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PassiveTransformFromByte.flushedSignal",
         error: e,
       });
     }
@@ -1984,5 +2146,4 @@ export class BlobChunkPushSource {
       });
     }
   }
-  
 }
