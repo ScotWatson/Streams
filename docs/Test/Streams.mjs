@@ -1032,7 +1032,7 @@ export class PassiveTransform {
       this.#transform = args.transform;
       this.#flush = args.flush;
       this.#state = this.#init();
-      this.#flushedSignalController = new SignalController();
+      this.#flushedSignalController = new Tasks.SignalController();
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PassiveTransform constructor",
@@ -1179,7 +1179,7 @@ export class PassiveByteTransform {
       this.#transform = args.transform;
       this.#flush = args.flush;
       this.#state = this.#init();
-      this.#flushedSignalController = new SignalController();
+      this.#flushedSignalController = new Tasks.SignalController();
       this.#outputByteRate = args.outputByteRate;
       this.#block = null;
     } catch (e) {
@@ -1360,7 +1360,7 @@ export class PassiveTransformToByte {
       this.#transform = args.transform;
       this.#flush = args.flush;
       this.#state = this.#init();
-      this.#flushedSignalController = new SignalController();
+      this.#flushedSignalController = new Tasks.SignalController();
       this.#outputByteRate = args.outputByteRate;
     } catch (e) {
       ErrorLog.rethrow({
@@ -1517,7 +1517,7 @@ export class PassiveTransformFromByte {
       this.#transform = args.transform;
       this.#flush = args.flush;
       this.#state = this.#init();
-      this.#flushedSignalController = new SignalController();
+      this.#flushedSignalController = new Tasks.SignalController();
       this.#block = null;
     } catch (e) {
       ErrorLog.rethrow({
