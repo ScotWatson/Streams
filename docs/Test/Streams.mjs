@@ -784,7 +784,7 @@ export class ByteSplitter {
 }
 
 // From "PushSink" byte callback
-export function createByteWritableStream(callback) {
+export function createWritableByteStream(callback) {
   try {
     const underlyingSink = {
       start: function (controller) {
@@ -806,14 +806,14 @@ export function createByteWritableStream(callback) {
     return new self.WritableStream(underlyingSink, writeQueuingStrategy);
   } catch (e) {
     ErrorLog.rethrow({
-      functionName: "createByteWritableStream",
+      functionName: "createWritableByteStream",
       error: e,
     });
   }
 }
 
 // From "PullSource" callback (not byte callback)
-export function createByteReadableStream(callback) {
+export function createReadableByteStream(callback) {
   try {
     const underlyingSource = {
       start: function (controller) {
@@ -837,7 +837,7 @@ export function createByteReadableStream(callback) {
     return new self.ReadableStream(underlyingSource, readQueuingStrategy);
   } catch (e) {
     ErrorLog.rethrow({
-      functionName: "createByteReadableStream",
+      functionName: "createReadableByteStream",
       error: e,
     });
   }
@@ -1865,6 +1865,7 @@ export class LazyNode {
       this.#transform = args.transform;
       this.#state = args.state;
       this.#flushing = false;
+      this.#flushedSignalController = new Tasks.SignalController();
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "LazyNode constructor",
@@ -1947,6 +1948,7 @@ export class LazyNode {
         }
         // Flushing is complete, perform reset
         this.#state = this.#transform.init();
+        this.#flushedSignalController.dispatch();
         return null;
       }
       let outputItem = this.#transform.execute({
@@ -1985,6 +1987,8 @@ export class LazyByteNode {
   #transform;
   #state;
   #inputDataRate;
+  #flushing;
+  #flushedSignalController;
   constructor(args) {
     try {
       const staticExecute = Tasks.createStatic({
@@ -1998,6 +2002,8 @@ export class LazyByteNode {
       this.#transform = args.transform;
       this.#state = args.state;
       this.#inputDataRate = args.#inputDataRate;
+      this.#flushing = false;
+      this.#flushedSignalController = new Tasks.SignalController();
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "LazyByteNode constructor",
@@ -2047,10 +2053,44 @@ export class LazyByteNode {
       });
     }
   }
+  flush() {
+    try {
+      this.#flushing = true;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "LazyByteNode.flush",
+        error: e,
+      });
+    }
+  }
+  get flushedSignal() {
+    try {
+      return this.#flushedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get LazyByteNode.flushedSignal",
+        error: e,
+      });
+    }
+  }
   #execute(outputView) {
     try {
       // input: create and pass Memory.View
       // transform: writes data to outputView
+      if (this.#flushing) {
+        let outputByteLength = this.#transform.execute({
+          input: null,
+          output: outputView,
+          state: this.#state,
+        });
+        if (outputByteLength !== 0) {
+          return outputByteLength;
+        }
+        // Flushing is complete, perform reset
+        this.#state = this.#transform.init();
+        this.#flushedSignalController.dispatch();
+        return 0;
+      }
       let outputByteLength = this.#transform.execute({
         input: null,
         output: outputView,
@@ -2088,6 +2128,8 @@ export class LazyNodeToByte {
   #outputCallbackController;
   #transform;
   #state;
+  #flushing;
+  #flushedSignalController;
   constructor(args) {
     try {
       const staticExecute = Tasks.createStatic({
@@ -2100,6 +2142,8 @@ export class LazyNodeToByte {
       });
       this.#transform = args.transform;
       this.#state = args.state;
+      this.#flushing = false;
+      this.#flushedSignalController = new Tasks.SignalController();
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "LazyNodeToByte constructor",
@@ -2149,10 +2193,44 @@ export class LazyNodeToByte {
       });
     }
   }
+  flush() {
+    try {
+      this.#flushing = true;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "LazyNodeToByte.flush",
+        error: e,
+      });
+    }
+  }
+  get flushedSignal() {
+    try {
+      return this.#flushedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get LazyNodeToByte.flushedSignal",
+        error: e,
+      });
+    }
+  }
   #execute(outputView) {
     try {
       // input: pass nothing, returns object
       // transform: returns object as output
+      if (this.#flushing) {
+        let outputByteLength = this.#transform.execute({
+          input: null,
+          output: outputView,
+          state: this.#state,
+        });
+        if (outputByteLength !== 0) {
+          return outputByteLength;
+        }
+        // Flushing is complete, perform reset
+        this.#state = this.#transform.init();
+        this.#flushedSignalController.dispatch();
+        return 0;
+      }
       let outputByteLength = this.#transform.execute({
         input: null,
         output: outputView,
@@ -2191,6 +2269,8 @@ export class LazyNodeFromByte {
   #transform;
   #state;
   #inputDataRate;
+  #flushing;
+  #flushedSignalController;
   constructor(args) {
     try {
       const staticExecute = Tasks.createStatic({
@@ -2204,6 +2284,8 @@ export class LazyNodeFromByte {
       this.#transform = args.transform;
       this.#state = args.state;
       this.#inputDataRate = args.#inputDataRate;
+      this.#flushing = false;
+      this.#flushedSignalController = new Tasks.SignalController();
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "LazyNodeFromByte constructor",
@@ -2253,10 +2335,43 @@ export class LazyNodeFromByte {
       });
     }
   }
+  flush() {
+    try {
+      this.#flushing = true;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "LazyNodeFromByte.flush",
+        error: e,
+      });
+    }
+  }
+  get flushedSignal() {
+    try {
+      return this.#flushedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get LazyNodeFromByte.flushedSignal",
+        error: e,
+      });
+    }
+  }
   #execute() {
     try {
       // input: create and pass Memory.View
       // transform: writes data to outputView
+      if (this.#flushing) {
+        let outputItem = this.#transform.execute({
+          input: null,
+          state: this.#state,
+        });
+        if (outputItem !== null) {
+          return outputItem;
+        }
+        // Flushing is complete, perform reset
+        this.#state = this.#transform.init();
+        this.#flushedSignalController.dispatch();
+        return null;
+      }
       let outputItem = this.#transform.execute({
         input: null,
         state: this.#state,
