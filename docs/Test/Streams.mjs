@@ -2489,3 +2489,136 @@ export class BlobChunkPushSource {
     }
   }
 }
+
+class AsyncBytePushSource {
+  #asyncFunction;
+  #outputDataRate;
+  #interval;
+  #smoothingFactor;
+  #staticExecute;
+  #outputCallback;
+  #endedSignalController;
+  // Statistics
+  #avgRunTime;
+  #avgInterval;
+  #lastStartTime;
+  constructor(args) {
+    try {
+      this.#asyncFunction = args.asyncFunction;
+      this.#outputDataRate = args.outputDataRate;
+      this.#interval = args.interval;
+      this.#smoothingFactor = args.smoothingFactor;
+      // Initialize
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.outputCallback = new ByteCallback(null);
+      this.#endedSignalController = new SignalController();
+      this.#asyncFunction().then(this.#execute);
+      // Statistics
+      this.#avgRunTime = 0;
+      this.#avgInterval = this.#interval;
+      this.#lastStartTime = performance.now();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncBytePushSource constructor",
+        error: e,
+      });
+    }
+  }
+  connectOutput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("allocate" in newCallback)) {
+        throw "Callback must have member \"allocate\".";
+      }
+      if (!(Types.isInvocable(newCallback.allocate))) {
+        throw "Callback.allocate must be invocable.";
+      }
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncBytePushSource.connectOutput",
+        error: e,
+      });
+    }
+  }
+  get endedSignal() {
+    try {
+      return this.#endedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncBytePushSource.endedSignal",
+        error: e,
+      });
+    }
+  }
+  get avgInterval() {
+    try {
+      return this.#avgInterval;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncBytePushSource.avgInterval",
+        error: e,
+      });
+    }
+  }
+  get avgRunTime() {
+    try {
+      return this.#avgRunTime;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncBytePushSource.avgRunTime",
+        error: e,
+      });
+    }
+  }
+  async #execute(byteLength) {
+    try {
+      const start = self.performance.now();
+      let promise;
+      self.setTimeout(function () {
+        promise.then(this.#staticExecute);
+      }, this.#interval);
+      this.#outputCallback.invoke(byteLength);
+      if (byteLength !== this.#outputByteRate) {
+        this.#endedSignalController.dispatch();
+        return;
+      }
+      const view = this.#outputCallback.allocate(this.#outputByteRate);
+      promise = this.#asyncFunction(view);
+      const end = self.performance.now();
+      this.#avgInterval *= (1 - this.#smoothingFactor);
+      this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
+      this.#avgRunTime *= (1 - this.#smoothingFactor);
+      this.#avgRuntime += this.#smoothingFactor * (end - start);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncBytePushSource.#execute",
+        error: e,
+      });
+    }
+  }
+}
