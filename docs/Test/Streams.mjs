@@ -2731,23 +2731,25 @@ export class AsyncPushSourceNode {
   async #execute(outputItem) {
     try {
       const start = self.performance.now();
-      let promise;
+      const that = this;
       self.setTimeout(function () {
-        promise.then(this.#staticExecute);
+        that.#promise.then(that.#staticExecute);
       }, this.#interval);
       this.#outputCallback.invoke(outputItem);
       if (outputItem === null) {
         this.#endedSignalController.dispatch();
         return;
       }
-      promise = this.#asyncSource.execute({
+      this.#promise = this.#asyncSource.execute({
         state: this.#state,
       });
       const end = self.performance.now();
+      // Statistics
       this.#avgInterval *= (1 - this.#smoothingFactor);
       this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
       this.#avgRunTime *= (1 - this.#smoothingFactor);
       this.#avgRunTime += this.#smoothingFactor * (end - start);
+      this.#lastStartTime = start;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "AsyncPushSourceNode.#execute",
