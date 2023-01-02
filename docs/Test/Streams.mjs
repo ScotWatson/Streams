@@ -2734,6 +2734,7 @@ export class AsyncPushSourceNode {
   }
   async #execute(outputItem) {
     try {
+      console.log(outputItem);
       if (outputItem === null) {
         this.#endedSignalController.dispatch();
         return;
