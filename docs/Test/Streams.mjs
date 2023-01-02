@@ -2658,7 +2658,9 @@ export class AsyncPushSourceNode {
       // Initialize
       (async function () {
         that.#state = await that.#asyncSource.init();
-        const firstOutput = await that.#asyncSource.execute();
+        const firstOutput = await that.#asyncSource.execute({
+          state: that.#state,
+        });
         that.#execute(firstOutput);
       })();
     } catch (e) {
