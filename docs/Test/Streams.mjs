@@ -2734,16 +2734,16 @@ export class AsyncPushSourceNode {
   }
   async #execute(outputItem) {
     try {
+      if (outputItem === null) {
+        this.#endedSignalController.dispatch();
+        return;
+      }
       const start = self.performance.now();
       const that = this;
       self.setTimeout(function () {
         that.#promise.then(that.#staticExecute);
       }, this.#interval);
       this.#outputCallback.invoke(outputItem);
-      if (outputItem === null) {
-        this.#endedSignalController.dispatch();
-        return;
-      }
       this.#promise = this.#asyncSource.execute({
         state: this.#state,
       });
