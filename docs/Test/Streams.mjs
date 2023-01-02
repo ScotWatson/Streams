@@ -2502,6 +2502,7 @@ class AsyncBytePushSource {
   #avgRunTime;
   #avgInterval;
   #lastStartTime;
+  #outputByteRate;
   constructor(args) {
     try {
       this.#asyncFunction = args.asyncFunction;
