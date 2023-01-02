@@ -2639,6 +2639,7 @@ export class AsyncPushSourceNode {
   #avgInterval;
   constructor(args) {
     try {
+      let that = this;
       this.#asyncSource = args.asyncSource;
       this.#interval = args.interval;
       // Initialize
@@ -2654,10 +2655,10 @@ export class AsyncPushSourceNode {
       this.#avgRunTime = 0;
       this.#avgInterval = this.#interval;
       // Initialize
-      this.#asyncSource.init().then(function (initState) {
-        this.#state = initState;
-        this.#execute();
-      });
+      (async function () {
+        that.#state = await that.#asyncSource.init();
+        that.#execute();
+      })();
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "AsyncPushSourceNode constructor",
@@ -2677,12 +2678,6 @@ export class AsyncPushSourceNode {
           return args;
         }
       })();
-      if (!("allocate" in newCallback)) {
-        throw "Callback must have member \"allocate\".";
-      }
-      if (!(Types.isInvocable(newCallback.allocate))) {
-        throw "Callback.allocate must be invocable.";
-      }
       if (!("invoke" in newCallback)) {
         throw "Callback must have member \"invoke\".";
       }
