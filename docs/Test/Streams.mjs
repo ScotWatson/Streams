@@ -2401,95 +2401,6 @@ export class LazyNodeFromByte {
   }
 }
 
-export class BlobChunkPushSource {
-  #blob;
-  #outputByteRate;
-  #taskCallback;
-  #outputCallback;
-  #blobIndex;
-  #eofSignalController;
-  constructor(args) {
-    try {
-      this.#blob = args.blob;
-      this.#outputByteRate = args.outputByteRate;
-      const staticExecute = Tasks.createStatic({
-        function: this.#execute,
-        this: this,
-      });
-      this.#taskCallback = new Tasks.Callback({
-        invoke: staticExecute,
-      });
-      this.#outputCallback = new Tasks.Callback(null);
-      this.#blobIndex = 0;
-      this.#eofSignalController = new Tasks.SignalController();
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BlobChunkPushSource constructor",
-        error: e,
-      });
-    }
-  }
-  connectOutput(args) {
-    try {
-      const newCallback = (function () {
-        if (Types.isSimpleObject(args)) {
-          return args.callback;
-        } else {
-          return args;
-        }
-      })();
-      this.#outputCallback = newCallback;
-      if (this.#blobIndex < this.#blob.size) {
-        Tasks.queueTask(this.#taskCallback);
-      }
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BlobChunkPushSource.connectOutput",
-        error: e,
-      });
-    }
-  }
-  get eofSignal() {
-    try {
-      return this.#eofSignalController.signal;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BlobChunkPushSource.eofSignal",
-        error: e,
-      });
-    }
-  }
-  async #execute() {
-    try {
-      const index = this.#blobIndex;
-      const byteRate = this.#outputByteRate;
-      const blob = this.#blob;
-      const thisSlice = (function () {
-        if (index + byteRate > blob.length) {
-          return blob.slice(index);
-        } else {
-          return blob.slice(index, index + byteRate);
-        }
-      })();
-      const thisBuffer = await thisSlice.arrayBuffer();
-      const thisBlock = new Memory.Block(thisBuffer);
-      const thisView = new Memory.View(thisBlock);
-      this.#blobIndex += thisSlice.size;
-      this.#outputCallback.invoke(thisView);
-      if (this.#blobIndex < this.#blob.size) {
-        Tasks.queueTask(this.#taskCallback);
-      } else {
-        this.#eofSignalController.dispatch();
-      }
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BlobChunkPushSource.#execute",
-        error: e,
-      });
-    }
-  }
-}
-
 export class AsyncBytePushSource {
   #asyncFunction;
   #outputDataRate;
@@ -2734,7 +2645,6 @@ export class AsyncPushSourceNode {
   }
   async #execute(outputItem) {
     try {
-      console.log(outputItem);
       if (outputItem === null) {
         this.#endedSignalController.dispatch();
         return;
