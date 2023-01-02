@@ -2826,6 +2826,9 @@ export function createBlobChunkSource(args) {
         ret.state = args.state;
         return ret;
       })();
+      if (state.blobIndex >= state.blob.length) {
+        return null;
+      }
       const thisSlice = (function () {
         if (state.blobIndex + state.outputByteRate > state.blob.length) {
           return state.blob.slice(state.blobIndex);
