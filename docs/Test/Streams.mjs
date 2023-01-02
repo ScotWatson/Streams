@@ -2827,11 +2827,11 @@ export function createBlobChunkSource(args) {
         ret.state = args.state;
         return ret;
       })();
-      if (state.blobIndex >= state.blob.length) {
+      if (state.blobIndex >= state.blob.size) {
         return null;
       }
       const thisSlice = (function () {
-        if (state.blobIndex + state.outputByteRate > state.blob.length) {
+        if (state.blobIndex + state.outputByteRate > state.blob.size) {
           return state.blob.slice(state.blobIndex);
         } else {
           return state.blob.slice(state.blobIndex, state.blobIndex + state.outputByteRate);
