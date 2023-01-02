@@ -2777,7 +2777,7 @@ export class AsyncSource {
     let outputItem = await this.execute({
       state: state,
     });
-    while outputItem !== null) {
+    while (outputItem !== null) {
       outputItem = await this.execute({
         state: state,
       });
