@@ -2490,7 +2490,7 @@ export class BlobChunkPushSource {
   }
 }
 
-class AsyncBytePushSource {
+export class AsyncBytePushSource {
   #asyncFunction;
   #outputDataRate;
   #interval;
@@ -2625,7 +2625,7 @@ class AsyncBytePushSource {
   }
 }
 
-class AsyncPushSourceNode {
+export class AsyncPushSourceNode {
   #asyncSource;
   #state;
   #interval;
