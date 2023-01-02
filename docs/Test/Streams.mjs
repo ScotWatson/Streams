@@ -2615,7 +2615,7 @@ class AsyncBytePushSource {
       this.#avgInterval *= (1 - this.#smoothingFactor);
       this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
       this.#avgRunTime *= (1 - this.#smoothingFactor);
-      this.#avgRuntime += this.#smoothingFactor * (end - start);
+      this.#avgRunTime += this.#smoothingFactor * (end - start);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "AsyncBytePushSource.#execute",
