@@ -966,8 +966,8 @@ export class BytePump {
   #outputCallback;
   constructor() {
     try {
-      this.#inputCallback = new Callback(null);
-      this.#outputCallback = new ByteCallback(null);
+      this.#inputCallback = new Tasks.Callback(null);
+      this.#outputCallback = new Tasks.ByteCallback(null);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePump constructor",
@@ -2625,24 +2625,22 @@ class AsyncBytePushSource {
   }
 }
 
-class AsyncPushSource {
-  #asyncFunction;
-  #outputDataRate;
+class AsyncPushSourceNode {
+  #asyncSource;
+  #state;
   #interval;
-  #smoothingFactor;
   #staticExecute;
   #outputCallback;
   #endedSignalController;
   // Statistics
+  #smoothingFactor;
+  #lastStartTime;
   #avgRunTime;
   #avgInterval;
-  #lastStartTime;
   constructor(args) {
     try {
-      this.#asyncFunction = args.asyncFunction;
-      this.#outputDataRate = args.outputDataRate;
+      this.#asyncSource = args.asyncSource;
       this.#interval = args.interval;
-      this.#smoothingFactor = args.smoothingFactor;
       // Initialize
       this.#staticExecute = Tasks.createStatic({
         function: this.#execute,
@@ -2650,14 +2648,19 @@ class AsyncPushSource {
       });
       this.outputCallback = new Tasks.Callback(null);
       this.#endedSignalController = new Tasks.SignalController();
-      this.#asyncFunction().then(this.#execute);
       // Statistics
+      this.#smoothingFactor = args.smoothingFactor;
+      this.#lastStartTime = performance.now();
       this.#avgRunTime = 0;
       this.#avgInterval = this.#interval;
-      this.#lastStartTime = performance.now();
+      // Initialize
+      this.#asyncSource.init().then(function (initState) {
+        this.#state = initState;
+        this.#execute();
+      });
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "AsyncPushSource constructor",
+        functionName: "AsyncPushSourceNode constructor",
         error: e,
       });
     }
@@ -2695,7 +2698,7 @@ class AsyncPushSource {
       this.#outputCallback = newCallback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "AsyncPushSource.connectOutput",
+        functionName: "AsyncPushSourceNode.connectOutput",
         error: e,
       });
     }
@@ -2705,7 +2708,7 @@ class AsyncPushSource {
       return this.#endedSignalController.signal;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get AsyncPushSource.endedSignal",
+        functionName: "get AsyncPushSourceNode.endedSignal",
         error: e,
       });
     }
@@ -2715,7 +2718,7 @@ class AsyncPushSource {
       return this.#avgInterval;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get AsyncPushSource.avgInterval",
+        functionName: "get AsyncPushSourceNode.avgInterval",
         error: e,
       });
     }
@@ -2725,7 +2728,7 @@ class AsyncPushSource {
       return this.#avgRunTime;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get AsyncPushSource.avgRunTime",
+        functionName: "get AsyncPushSourceNode.avgRunTime",
         error: e,
       });
     }
@@ -2742,7 +2745,9 @@ class AsyncPushSource {
         this.#endedSignalController.dispatch();
         return;
       }
-      promise = this.#asyncFunction();
+      promise = this.#asyncSource.execute({
+        state: this.#state,
+      });
       const end = self.performance.now();
       this.#avgInterval *= (1 - this.#smoothingFactor);
       this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
@@ -2750,9 +2755,91 @@ class AsyncPushSource {
       this.#avgRunTime += this.#smoothingFactor * (end - start);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "AsyncPushSource.#execute",
+        functionName: "AsyncPushSourceNode.#execute",
         error: e,
       });
     }
   }
+}
+
+export class AsyncSource {
+  constructor() {
+  }
+  async init() {
+    return {};
+  }
+  async execute(args) {
+    return null;
+  }
+  async asyncExecute(args) {
+    const state = await this.init();
+    const output = new Sequence.Sequence();
+    let outputItem = await this.execute({
+      state: state,
+    });
+    while outputItem !== null) {
+      outputItem = await this.execute({
+        state: state,
+      });
+      output.extend(outputItem);
+    }
+    return output;
+  }
+}
+
+export function createBlobChunkSource(args) {
+  const { blob, outputByteRate } = (function () {
+    let ret = {};
+    if (!("blob" in args)) {
+      throw "Argument \"blob\" must be provided.";
+    }
+    ret.blob = args.blob;
+    if (!("outputByteRate" in args)) {
+      throw "Argument \"outputByteRate\" must be provided.";
+    }
+    ret.outputByteRate = args.outputByteRate;
+    return ret;
+  })();
+  const blobChunk = new AsyncSource();
+  blobChunk.init = async function () {
+    try {
+      return {
+        blob: blob,
+        blobIndex: 0,
+        outputByteRate: outputByteRate,
+      };
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BlobChunkSource.#execute",
+        error: e,
+      });
+    }
+  }
+  blobChunk.execute = async function (args) {
+    try {
+      const { state } = (function () {
+        let ret = {};
+        if (!("state" in args)) {
+          throw "Argument \"state\" must be provided.";
+        }
+        ret.state = args.state;
+        return ret;
+      })();
+      const thisSlice = (function () {
+        if (state.blobIndex + state.outputByteRate > state.blob.length) {
+          return state.blob.slice(state.blobIndex);
+        } else {
+          return state.blob.slice(state.blobIndex, state.blobIndex + state.outputByteRate);
+        }
+      })();
+      state.blobIndex += thisSlice.size;
+      return await thisSlice.arrayBuffer();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BlobChunkSource.#execute",
+        error: e,
+      });
+    }
+  }
+  return blobChunk;
 }
