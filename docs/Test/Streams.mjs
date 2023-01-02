@@ -2630,6 +2630,7 @@ export class AsyncPushSourceNode {
   #state;
   #interval;
   #staticExecute;
+  #promise;
   #outputCallback;
   #endedSignalController;
   // Statistics
