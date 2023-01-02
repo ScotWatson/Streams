@@ -2837,7 +2837,12 @@ export function createBlobChunkSource(args) {
         }
       })();
       state.blobIndex += thisSlice.size;
-      return await thisSlice.arrayBuffer();
+      const arrayBuffer = await thisSlice.arrayBuffer();
+      const block = new Memory.Block({
+        arrayBuffer: arrayBuffer,
+      });
+      const view = new Memory.View(block);
+      return view;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BlobChunkSource.#execute",
