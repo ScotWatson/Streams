@@ -2545,6 +2545,9 @@ export class AsyncPushSourceNode {
   #promise;
   #outputCallback;
   #endedSignalController;
+  #progressSignalController;
+  #progressCounter;
+  #progressThreshold;
   // Statistics
   #smoothingFactor;
   #lastStartTime;
@@ -2556,6 +2559,8 @@ export class AsyncPushSourceNode {
       this.#asyncSource = args.asyncSource;
       this.#interval = 4;
       this.#targetUsage = args.targetUsage;
+      this.#progressCounter = 0;
+      this.#progressThreshold = args.progressThreshold;
       // Initialize
       this.#staticExecute = Tasks.createStatic({
         function: this.#execute,
@@ -2567,7 +2572,7 @@ export class AsyncPushSourceNode {
       this.#smoothingFactor = args.smoothingFactor;
       this.#lastStartTime = performance.now();
       this.#avgRunTime = 0;
-      this.#avgInterval = this.#interval;
+      this.#avgInterval = 4;
       // Initialize
       (async function () {
         that.#state = await that.#asyncSource.init();
@@ -2625,6 +2630,16 @@ export class AsyncPushSourceNode {
       });
     }
   }
+  get progressSignal() {
+    try {
+      return this.#progressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncPushSourceNode.progressSignal",
+        error: e,
+      });
+    }
+  }
   get avgInterval() {
     try {
       return this.#avgInterval;
@@ -2662,16 +2677,21 @@ export class AsyncPushSourceNode {
       this.#outputCallback.invoke(outputItem);
       const end = self.performance.now();
       // Statistics
+      ++this.#progressCounter;
+      while (this.#progressCounter >= this.progressThreshold) {
+        this.#progressSignalController.dispatch();
+        this.#progressCounter -= this.progressThreshold;
+      }
       this.#avgInterval *= (1 - this.#smoothingFactor);
       this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
       this.#avgRunTime *= (1 - this.#smoothingFactor);
       this.#avgRunTime += this.#smoothingFactor * (end - start);
-      const targetInterval = (this.#avgRunTime / this.#targetUsage);
-      this.#interval += 0.1 * (targetInterval - this.#avgInterval);
+      this.#lastStartTime = start;
+      // Estimate proper interval
+      this.#interval = (this.#avgRunTime / this.#targetUsage);
       if (this.#interval < 1) {
         this.#interval = 1;
       }
-      this.#lastStartTime = start;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "AsyncPushSourceNode.#execute",
