@@ -2557,7 +2557,7 @@ export class AsyncPushSourceNode {
     try {
       let that = this;
       this.#asyncSource = args.asyncSource;
-      this.#interval = 4;
+      this.#setTimeoutValue = 4;
       this.#targetUsage = args.targetUsage;
       this.#progressCounter = 0;
       this.#progressThreshold = args.progressThreshold;
