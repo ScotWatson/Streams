@@ -9,7 +9,7 @@ import * as Queue from "https://scotwatson.github.io/Containers/Test/Queue.mjs";
 import * as Memory from "https://scotwatson.github.io/Memory/Test/Memory.mjs";
 import * as Tasks from "https://scotwatson.github.io/Tasks/Test/Tasks.mjs";
 
-export class Splitter {
+export class SplitterNode {
   #inputCallbackController;
   #outputCallbackSet;
   #clone;
@@ -27,7 +27,7 @@ export class Splitter {
       this.#clone = args.clone;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Splitter constructor",
+        functionName: "SplitterNode constructor",
         error: e,
       });
     }
@@ -37,7 +37,7 @@ export class Splitter {
       return this.#inputCallbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get Splitter.inputCallback",
+        functionName: "get SplitterNode.inputCallback",
         error: e,
       });
     }
@@ -69,7 +69,7 @@ export class Splitter {
       this.#outputCallbackSet.add(newCallback);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Splitter.connectOutput",
+        functionName: "SplitterNode.connectOutput",
         error: e,
       });
     }
@@ -85,7 +85,7 @@ export class Splitter {
       this.#outputCallbackSet = newCallbackSet;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Splitter.disconnectAllRevokedOutputs",
+        functionName: "SplitterNode.disconnectAllRevokedOutputs",
         error: e,
       });
     }
@@ -97,7 +97,7 @@ export class Splitter {
       }
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Splitter.#execute",
+        functionName: "SplitterNode.#execute",
         error: e,
       });
     }
@@ -161,7 +161,7 @@ export function createReadableStream(callback) {
 }
 
 // passive
-export class Pipe {
+export class PipeNode {
   #queue;
   #inputCallbackController;
   #outputCallbackController;
@@ -185,7 +185,7 @@ export class Pipe {
       this.#bufferEmptyController = new Tasks.SignalController();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Pipe constructor",
+        functionName: "PipeNode constructor",
         error: e,
       });
     }
@@ -195,7 +195,7 @@ export class Pipe {
       return this.#inputCallbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get Pipe.inputCallback",
+        functionName: "get PipeNode.inputCallback",
         error: e,
       });
     }
@@ -208,7 +208,7 @@ export class Pipe {
       this.#queue.enqueue(item);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Pipe.#push",
+        functionName: "PipeNode.#push",
         error: e,
       });
     }
@@ -218,7 +218,7 @@ export class Pipe {
       return this.#outputCallbackController.output;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get Pipe.outputCallback",
+        functionName: "get PipeNode.outputCallback",
         error: e,
       });
     }
@@ -231,7 +231,7 @@ export class Pipe {
       return this.#queue.dequeue();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Pipe.#pull",
+        functionName: "PipeNode.#pull",
         error: e,
       });
     }
@@ -241,7 +241,7 @@ export class Pipe {
       return this.#bufferEmptyController.signal;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get Pipe.bufferEmpty",
+        functionName: "get PipeNode.bufferEmpty",
         error: e,
       });
     }
@@ -251,7 +251,7 @@ export class Pipe {
       return this.#bufferFullController.signal;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get Pipe.bufferFull",
+        functionName: "get PipeNode.bufferFull",
         error: e,
       });
     }
@@ -259,7 +259,7 @@ export class Pipe {
 };
 
 // active
-export class Pump {
+export class PumpNode {
   #inputCallback;
   #outputCallback;
   constructor() {
@@ -268,7 +268,7 @@ export class Pump {
       this.#outputCallback = new Callback(null);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Pump constructor",
+        functionName: "PumpNode constructor",
         error: e,
       });
     }
@@ -278,7 +278,7 @@ export class Pump {
       this.#inputCallback = args;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Pump.connectInput",
+        functionName: "PumpNode.connectInput",
         error: e,
       });
     }
@@ -288,7 +288,7 @@ export class Pump {
       this.#outputCallback = args;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Pump.connectOutput",
+        functionName: "PumpNode.connectOutput",
         error: e,
       });
     }
@@ -299,197 +299,7 @@ export class Pump {
       this.#outputCallback.invoke(item);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "Pump.execute",
-        error: e,
-      });
-    }
-  }
-}
-
-export class AsyncByteReaderPushSource {
-  #pushCallback;
-  #asyncCallback;
-  #taskCallback;
-  #outputByteRate;
-  #offset;
-  #buffer;
-  constructor(args) {
-    try {
-      if (!("callback" in args)) {
-        throw "Argument \"callback\" must be provided.";
-      }
-      this.#asyncCallback = args.callback;
-      if (!("outputByteRate" in args)) {
-        throw "Argument \"outputByteRate\" must be provided.";
-      }
-      this.#outputByteRate = args.outputByteRate;
-      const taskFunction = Tasks.createStatic({
-        function: this.#task,
-        this: this,
-      });
-      const taskCallbackController = new Tasks.CallbackController({
-        invoke: taskFunction,
-      });
-      this.#taskCallback = taskCallbackController.callback;
-      this.#pushCallback = null;
-      this.#offset = 0;
-      this.#buffer = new Memory.Block({
-        byteLength: this.#outputByteRate,
-      });
-      this.#taskCallback.invoke();
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "AsyncByteReaderPushSource constructor",
-        error: e,
-      });
-    }
-  }
-  connectOutput(args) {
-    try {
-      const newCallback = (function () {
-        if (Types.isSimpleObject(args)) {
-          if (!(Object.hasOwn(args, "callback"))) {
-            throw "Argument \"callback\" must be provided.";
-          }
-          return args.callback;
-        } else {
-          return args;
-        }
-      })();
-      if (!("invoke" in newCallback)) {
-        throw "Callback must have member \"invoke\".";
-      }
-      if (!(Types.isInvocable(newCallback.invoke))) {
-        throw "Callback.invoke must be invocable.";
-      }
-      if (!("isRevoked" in newCallback)) {
-        throw "Callback must have member \"isRevoked\".";
-      }
-      if (!(Types.isInvocable(newCallback.isRevoked))) {
-        throw "Callback.isRevoked must be invocable.";
-      }
-      this.#pushCallback = newCallback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "AsyncByteReaderPushSource.connectOutput",
-        error: e,
-      });
-    }
-  }
-  peek() {
-    try {
-      const partialData = new Memory.View({
-        memoryBlock: this.#buffer,
-        byteOffset: 0,
-        byteLength: this.#offset,
-      });
-      const block = new Memory.Block(this.#offset);
-      const view = new Memory.View(block);
-      view.set(partialData);
-      return view;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "AsyncByteReaderPushSource.peek",
-        error: e,
-      });
-    }
-  }
-  async #task() {
-    try {
-      const inputView = new Memory.View({
-        memoryBlock: this.#buffer,
-        byteOffset: this.#offset,
-        byteLength: this.#outputByteRate - this.#offset,
-      });
-      const outputByteLength = await this.#asyncCallback.invoke(inputView);
-      if (outputByteLength !== 0) {
-        // 0 output length indicates that no more data is available, therefore stop queueing tasks.
-        return;
-      }
-      this.#offset += outputByteLength;
-      if (this.#offset >= this.#buffer.byteLength) {
-        const returnView = new Memory.View({
-          memoryBlock: this.#buffer,
-        });
-        this.#pushCallback.invoke(returnView);
-        this.#offset = 0;
-        this.#buffer = new Memory.Block({
-          byteLength: this.#outputByteRate,
-        });
-      }
-      Tasks.queueTask(this.#taskCallback);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "AsyncByteReaderPushSource.#task",
-        error: e,
-      });
-    }
-  }
-}
-
-export class AsyncFunctionPushSource {
-  #pushCallback;
-  #callback;
-  #taskCallback;
-  constructor(args) {
-    try {
-      this.#callback = args.callback;
-      this.#pushCallback = new Callback(null);
-      const taskFunction = Tasks.createStatic({
-        function: this.#task,
-        this: this,
-      });
-      const taskCallbackController = new Tasks.CallbackController({
-        invoke: taskFunction,
-      });
-      this.#taskCallback = taskCallbackController.callback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "AsyncFunctionPushSource constructor",
-        error: e,
-      });
-    }
-  }
-  connectOutput(args) {
-    try {
-      const newCallback = (function () {
-        if (Types.isSimpleObject(args)) {
-          if (!(Object.hasOwn(args, "callback"))) {
-            throw "Argument \"callback\" must be provided.";
-          }
-          return args.callback;
-        } else {
-          return args;
-        }
-      })();
-      if (!("invoke" in newCallback)) {
-        throw "Callback must have member \"invoke\".";
-      }
-      if (!(Types.isInvocable(newCallback.invoke))) {
-        throw "Callback.invoke must be invocable.";
-      }
-      if (!("isRevoked" in newCallback)) {
-        throw "Callback must have member \"isRevoked\".";
-      }
-      if (!(Types.isInvocable(newCallback.isRevoked))) {
-        throw "Callback.isRevoked must be invocable.";
-      }
-      this.#pushCallback = newCallback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "AsyncFunctionPushSource.connectOutput",
-        error: e,
-      });
-    }
-  }
-  async #task() {
-    try {
-      const item = await this.#callback();
-      this.#pushCallback.invoke(item);
-      Tasks.queueTask(this.#taskCallback);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "AsyncFunctionPushSource.#task",
+        functionName: "PumpNode.execute",
         error: e,
       });
     }
@@ -661,7 +471,7 @@ export class WritableStreamPushSink {
   }
 };
 
-export class ByteSplitter {
+export class ByteSplitterNode {
   #inputCallbackController;
   #outputCallbackSet;
   #staticAllocate;
@@ -684,7 +494,7 @@ export class ByteSplitter {
       this.#outputCallbackSet = new Set();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "ByteSplitter constructor",
+        functionName: "ByteSplitterNode constructor",
         error: e,
       });
     }
@@ -694,7 +504,7 @@ export class ByteSplitter {
       return this.#inputCallbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get ByteSplitter.inputCallback",
+        functionName: "get ByteSplitterNode.inputCallback",
         error: e,
       });
     }
@@ -732,7 +542,7 @@ export class ByteSplitter {
       this.#outputCallbackSet.add(newCallback);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "ByteSplitter.connectOutput",
+        functionName: "ByteSplitterNode.connectOutput",
         error: e,
       });
     }
@@ -748,7 +558,7 @@ export class ByteSplitter {
       this.#outputCallbackSet = newCallbackSet;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "ByteSplitter.disconnectAllRevokedOutputs",
+        functionName: "ByteSplitterNode.disconnectAllRevokedOutputs",
         error: e,
       });
     }
@@ -761,7 +571,7 @@ export class ByteSplitter {
       return new Memory.View(this.#block);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "ByteSplitter.#allocate",
+        functionName: "ByteSplitterNode.#allocate",
         error: e,
       });
     }
@@ -776,7 +586,7 @@ export class ByteSplitter {
       }
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "ByteSplitter.#execute",
+        functionName: "ByteSplitterNode.#execute",
         error: e,
       });
     }
@@ -844,7 +654,7 @@ export function createReadableByteStream(callback) {
 }
 
 // passive
-export class BytePipe {
+export class BytePipeNode {
   #queue;
   #inputCallbackController;
   #outputCallbackController;
@@ -877,7 +687,7 @@ export class BytePipe {
       this.#bufferEmptyController = new Tasks.SignalController();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "BytePipe constructor",
+        functionName: "BytePipeNode constructor",
         error: e,
       });
     }
@@ -887,7 +697,7 @@ export class BytePipe {
       return this.#inputCallbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get BytePipe.inputCallback",
+        functionName: "get BytePipeNode.inputCallback",
         error: e,
       });
     }
@@ -897,7 +707,7 @@ export class BytePipe {
       return this.#queue.reserve(byteLength);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "BytePipe.#allocate",
+        functionName: "BytePipeNode.#allocate",
         error: e,
       });
     }
@@ -910,7 +720,7 @@ export class BytePipe {
       this.#queue.enqueue(byteLength);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "BytePipe.#push",
+        functionName: "BytePipeNode.#push",
         error: e,
       });
     }
@@ -920,7 +730,7 @@ export class BytePipe {
       return this.#outputCallbackController.output;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get BytePipe.outputCallback",
+        functionName: "get BytePipeNode.outputCallback",
         error: e,
       });
     }
@@ -933,7 +743,7 @@ export class BytePipe {
       return this.#queue.dequeue(byteLength);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "BytePipe.#pull",
+        functionName: "BytePipeNode.#pull",
         error: e,
       });
     }
@@ -943,7 +753,7 @@ export class BytePipe {
       return this.#bufferEmptyController.signal;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get BytePipe.bufferEmpty",
+        functionName: "get BytePipeNode.bufferEmpty",
         error: e,
       });
     }
@@ -953,7 +763,7 @@ export class BytePipe {
       return this.#bufferFullController.signal;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get BytePipe.bufferFull",
+        functionName: "get BytePipeNode.bufferFull",
         error: e,
       });
     }
@@ -961,7 +771,7 @@ export class BytePipe {
 };
 
 // active
-export class BytePump {
+export class BytePumpNode {
   #inputCallback;
   #outputCallback;
   constructor() {
@@ -970,7 +780,7 @@ export class BytePump {
       this.#outputCallback = new Tasks.ByteCallback(null);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "BytePump constructor",
+        functionName: "BytePumpNode constructor",
         error: e,
       });
     }
@@ -980,7 +790,7 @@ export class BytePump {
       this.#inputCallback = args;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "BytePump.connectInput",
+        functionName: "BytePumpNode.connectInput",
         error: e,
       });
     }
@@ -990,7 +800,7 @@ export class BytePump {
       this.#outputCallback = args;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "BytePump.connectOutput",
+        functionName: "BytePumpNode.connectOutput",
         error: e,
       });
     }
@@ -1003,7 +813,7 @@ export class BytePump {
       this.#outputCallback.invoke(byteLength);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "BytePump.execute",
+        functionName: "BytePumpNode.execute",
         error: e,
       });
     }
