@@ -820,215 +820,7 @@ export class BytePumpNode {
   }
 }
 
-export class Transform {
-  constructor() {
-  }
-  init() {
-    return {};
-  }
-  execute(args) {
-    return null;
-  }
-  flush(args) {
-    return null;
-  }
-  syncExecute(args) {
-    const { input } = (function () {
-      if (!(Types.isSimpleObject(args))) {
-        throw "Argument must be a simple object.";
-      }
-      if (!("input" in args)) {
-        throw "Argument \"input\" must be provided.";
-      }
-      return {
-        input: args.input,
-      };
-    })();
-    const state = this.init();
-    const output = new Sequence.Sequence();
-    let outputItem = this.execute({
-      input: null,
-      state: state,
-    });
-    while (outputItem !== null) {
-      output.extend(outputItem);
-      outputItem = this.execute({
-        input: null,
-        state: state,
-      });
-    }
-    for (const inputItem of input) {
-      outputItem = this.execute({
-        input: inputItem,
-        state: state,
-      });
-      while (outputItem !== null) {
-        output.extend(outputItem);
-        outputItem = this.execute({
-          input: null,
-          state: state,
-        });
-      }
-    }
-    outputItem = this.flush({
-      state: state,
-    });
-    while (outputItem !== null) {
-      output.extend(outputItem);
-      outputItem = this.flush({
-        state: state,
-      });
-    }
-    return output;
-  }
-}
-
-export class TransformToByte {
-  constructor() {
-  }
-  init() {
-    return {};
-  }
-  execute(args) {
-    return 0;
-  }
-  flush(args) {
-    return 0;
-  }
-  syncExecute(args) {
-    const { inputView, outputByteRate } = (function () {
-      if (!(Types.isSimpleObject(args))) {
-        throw "Argument must be a simple object.";
-      }
-      if (!("input" in args)) {
-        throw "Argument \"input\" must be provided.";
-      }
-      if (!("outputByteRate" in args)) {
-        throw "Argument \"outputByteRate\" must be provided.";
-      }
-      return {
-        input: args.input,
-        outputByteRate: args.outputByteRate,
-      };
-    })();
-    const state = this.init();
-    const output = new Sequence.ByteSequence();
-    let outputView = output.reserve(outputByteRate);
-    let outputBytes = this.execute({
-      input: null,
-      output: outputView,
-      state: state,
-    });
-    while (outputBytes !== 0) {
-      output.extend(outputBytes);
-      output.reserve(outputByteRate);
-      outputBytes = this.execute({
-        input: null,
-        output: outputView,
-        state: state,
-      });
-    }
-    outputBytes = this.execute({
-      input: inputView,
-      output: outputView,
-      state: state,
-    });
-    while (outputBytes !== null) {
-      output.extend(outputBytes);
-      output.reserve(outputByteRate);
-      outputBytes = this.execute({
-        input: null,
-        output: outputView,
-        state: state,
-      });
-    }
-    outputBytes = this.flush({
-      output: outputView,
-      state: state,
-    });
-    while (outputBytes !== 0) {
-      output.extend(outputBytes);
-      output.reserve(outputByteRate);
-      outputBytes = this.flush({
-        state: state,
-      });
-    }
-    output.extend(0);
-    return output.createView();
-  }
-  syncExecuteInto(args) {
-    const { input, output } = (function () {
-      if (!(Types.isSimpleObject(args))) {
-        throw "Argument must be a simple object.";
-      }
-      if (!("input" in args)) {
-        throw "Argument \"input\" must be provided.";
-      }
-      if (!("output" in args)) {
-        throw "Argument \"output\" must be provided.";
-      }
-      return {
-        input: args.input,
-        output: args.output,
-      };
-    })();
-    const state = this.init();
-    let outputIndex = 0;
-    let outputView = output.slice({
-      byteOffset: outputIndex,
-    });
-    let outputBytes = this.execute({
-      input: null,
-      output: outputView,
-      state: state,
-    });
-    while (outputBytes !== 0) {
-      outputIndex += outputBytes;
-      outputView = output.slice({
-        byteOffset: outputIndex,
-      });
-      outputBytes = this.execute({
-        input: null,
-        output: outputView,
-        state: state,
-      });
-    }
-    for (const inputView of input) {
-      outputBytes = this.execute({
-        input: inputView,
-        output: outputView,
-        state: state,
-      });
-      while (outputBytes !== 0) {
-        outputIndex += outputBytes;
-        outputView = output.slice({
-          byteOffset: outputIndex,
-        });
-        outputBytes = this.execute({
-          input: null,
-          output: outputView,
-          state: state,
-        });
-      }
-    }
-    outputBytes = this.flush({
-      output: outputView,
-      state: state,
-    });
-    while (outputBytes !== 0) {
-      outputIndex += outputBytes;
-      outputView = output.slice({
-        byteOffset: outputIndex,
-      });
-      outputBytes = this.flush({
-        state: state,
-      });
-    }
-    return outputIndex;
-  }
-}
-
-export class PassiveNode {
+export class PassiveTransformNode {
   #inputCallbackController;
   #outputCallback;
   #transform;
@@ -1049,7 +841,7 @@ export class PassiveNode {
       this.#flushedSignalController = new Tasks.SignalController();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveNode constructor",
+        functionName: "PassiveTransformNode constructor",
         error: e,
       });
     }
@@ -1059,7 +851,7 @@ export class PassiveNode {
       return this.#inputCallbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get PassiveNode.inputCallback",
+        functionName: "get PassiveTransformNode.inputCallback",
         error: e,
       });
     }
@@ -1069,7 +861,7 @@ export class PassiveNode {
       this.#inputCallbackController.revokeCallback();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get PassiveNode.disconnectInput",
+        functionName: "get PassiveTransformNode.disconnectInput",
         error: e,
       });
     }
@@ -1112,7 +904,7 @@ export class PassiveNode {
       }
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveNode.connectOutput",
+        functionName: "PassiveTransformNode.connectOutput",
         error: e,
       });
     }
@@ -1132,7 +924,7 @@ export class PassiveNode {
       this.#flushedSignalController.dispatch();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveNode.flush",
+        functionName: "PassiveTransformNode.flush",
         error: e,
       });
     }
@@ -1142,7 +934,7 @@ export class PassiveNode {
       return this.#flushedSignalController.signal;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get PassiveNode.flushedSignal",
+        functionName: "get PassiveTransformNode.flushedSignal",
         error: e,
       });
     }
@@ -1162,14 +954,14 @@ export class PassiveNode {
       }
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveNode.#execute",
+        functionName: "PassiveTransformNode.#execute",
         error: e,
       });
     }
   }
 }
 
-export class PassiveByteNode {
+export class PassiveByteTransformNode {
   #inputCallbackController;
   #outputCallback;
   #transform;
@@ -1194,7 +986,7 @@ export class PassiveByteNode {
       this.#block = null;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveByteNode constructor",
+        functionName: "PassiveByteTransformNode constructor",
         error: e,
       });
     }
@@ -1204,7 +996,7 @@ export class PassiveByteNode {
       return this.#inputCallbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get PassiveByteNode.inputCallback",
+        functionName: "get PassiveByteTransformNode.inputCallback",
         error: e,
       });
     }
@@ -1258,7 +1050,7 @@ export class PassiveByteNode {
       this.#outputCallback.invoke(outputByteLength);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveByteNode.connectOutput",
+        functionName: "PassiveByteTransformNode.connectOutput",
         error: e,
       });
     }
@@ -1271,7 +1063,7 @@ export class PassiveByteNode {
       return new Memory.View(this.#block);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveByteNode.#allocate",
+        functionName: "PassiveByteTransformNode.#allocate",
         error: e,
       });
     }
@@ -1295,7 +1087,7 @@ export class PassiveByteNode {
       this.#flushedSignalController.dispatch();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveByteNode.flush",
+        functionName: "PassiveByteTransformNode.flush",
         error: e,
       });
     }
@@ -1305,7 +1097,7 @@ export class PassiveByteNode {
       return this.#flushedSignalController.signal;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get PassiveByteNode.flushedSignal",
+        functionName: "get PassiveByteTransformNode.flushedSignal",
         error: e,
       });
     }
@@ -1340,14 +1132,14 @@ export class PassiveByteNode {
       this.#block = null;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveByteNode.#execute",
+        functionName: "PassiveByteTransformNode.#execute",
         error: e,
       });
     }
   }
 }
 
-export class PassiveNodeToByte {
+export class PassiveTransformNodeToByte {
   #inputCallbackController;
   #outputCallback;
   #transform;
@@ -1370,7 +1162,7 @@ export class PassiveNodeToByte {
       this.#outputByteRate = args.outputByteRate;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveNodeToByte constructor",
+        functionName: "PassiveTransformNodeToByte constructor",
         error: e,
       });
     }
@@ -1380,7 +1172,7 @@ export class PassiveNodeToByte {
       return this.#inputCallbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get PassiveNodeToByte.inputCallback",
+        functionName: "get PassiveTransformNodeToByte.inputCallback",
         error: e,
       });
     }
@@ -1434,7 +1226,7 @@ export class PassiveNodeToByte {
       this.#outputCallback.invoke(outputByteLength);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveNodeToByte.connectOutput",
+        functionName: "PassiveTransformNodeToByte.connectOutput",
         error: e,
       });
     }
@@ -1458,7 +1250,7 @@ export class PassiveNodeToByte {
       this.#flushedSignalController.dispatch();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveNodeToByte.flush",
+        functionName: "PassiveTransformNodeToByte.flush",
         error: e,
       });
     }
@@ -1468,7 +1260,7 @@ export class PassiveNodeToByte {
       return this.#flushedSignalController.signal;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get PassiveNodeToByte.flushedSignal",
+        functionName: "get PassiveTransformNodeToByte.flushedSignal",
         error: e,
       });
     }
@@ -1493,14 +1285,14 @@ export class PassiveNodeToByte {
       this.#outputCallback.invoke(outputByteLength);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveNodeToByte.#execute",
+        functionName: "PassiveTransformNodeToByte.#execute",
         error: e,
       });
     }
   }
 }
 
-export class PassiveNodeFromByte {
+export class PassiveTransformNodeFromByte {
   #inputCallbackController;
   #outputCallback;
   #transform;
@@ -1523,7 +1315,7 @@ export class PassiveNodeFromByte {
       this.#block = null;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveNodeFromByte constructor",
+        functionName: "PassiveTransformNodeFromByte constructor",
         error: e,
       });
     }
@@ -1533,7 +1325,7 @@ export class PassiveNodeFromByte {
       return this.#inputCallbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get PassiveNodeFromByte.inputCallback",
+        functionName: "get PassiveTransformNodeFromByte.inputCallback",
         error: e,
       });
     }
@@ -1576,7 +1368,7 @@ export class PassiveNodeFromByte {
       }
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveNodeFromByte.connectOutput",
+        functionName: "PassiveTransformNodeFromByte.connectOutput",
         error: e,
       });
     }
@@ -1596,7 +1388,7 @@ export class PassiveNodeFromByte {
       this.#flushedSignalController.dispatch();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveNodeFromByte.flush",
+        functionName: "PassiveTransformNodeFromByte.flush",
         error: e,
       });
     }
@@ -1606,7 +1398,7 @@ export class PassiveNodeFromByte {
       return this.#flushedSignalController.signal;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get PassiveNodeFromByte.flushedSignal",
+        functionName: "get PassiveTransformNodeFromByte.flushedSignal",
         error: e,
       });
     }
@@ -1619,7 +1411,7 @@ export class PassiveNodeFromByte {
       return new Memory.View(this.#block);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveNodeFromByte.#allocate",
+        functionName: "PassiveTransformNodeFromByte.#allocate",
         error: e,
       });
     }
@@ -1648,14 +1440,14 @@ export class PassiveNodeFromByte {
       }
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "PassiveNodeFromByte.#execute",
+        functionName: "PassiveTransformNodeFromByte.#execute",
         error: e,
       });
     }
   }
 }
 
-export class LazyNode {
+export class LazyTransformNode {
   #inputCallback;
   #outputCallbackController;
   #transform;
@@ -1678,7 +1470,7 @@ export class LazyNode {
       this.#flushedSignalController = new Tasks.SignalController();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "LazyNode constructor",
+        functionName: "LazyTransformNode constructor",
         error: e,
       });
     }
@@ -1688,7 +1480,7 @@ export class LazyNode {
       return this.#outputCallbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get LazyNode.outputCallback",
+        functionName: "get LazyTransformNode.outputCallback",
         error: e,
       });
     }
@@ -1720,7 +1512,7 @@ export class LazyNode {
       this.#inputCallback = newCallback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "LazyNode.connectInput",
+        functionName: "LazyTransformNode.connectInput",
         error: e,
       });
     }
@@ -1730,7 +1522,7 @@ export class LazyNode {
       this.#flushing = true;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "LazyNode.flush",
+        functionName: "LazyTransformNode.flush",
         error: e,
       });
     }
@@ -1740,7 +1532,7 @@ export class LazyNode {
       return this.#flushedSignalController.signal;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get LazyNode.flushedSignal",
+        functionName: "get LazyTransformNode.flushedSignal",
         error: e,
       });
     }
@@ -1784,14 +1576,14 @@ export class LazyNode {
       return outputItem;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "LazyNode.#execute",
+        functionName: "LazyTransformNode.#execute",
         error: e,
       });
     }
   }
 }
 
-export class LazyByteNode {
+export class LazyByteTransformNode {
   #inputCallback;
   #outputCallbackController;
   #transform;
@@ -1816,7 +1608,7 @@ export class LazyByteNode {
       this.#flushedSignalController = new Tasks.SignalController();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "LazyByteNode constructor",
+        functionName: "LazyByteTransformNode constructor",
         error: e,
       });
     }
@@ -1826,7 +1618,7 @@ export class LazyByteNode {
       return this.#outputCallbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get LazyByteNode.outputCallback",
+        functionName: "get LazyByteTransformNode.outputCallback",
         error: e,
       });
     }
@@ -1858,7 +1650,7 @@ export class LazyByteNode {
       this.#inputCallback = newCallback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "LazyByteNode.connectInput",
+        functionName: "LazyByteTransformNode.connectInput",
         error: e,
       });
     }
@@ -1868,7 +1660,7 @@ export class LazyByteNode {
       this.#flushing = true;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "LazyByteNode.flush",
+        functionName: "LazyByteTransformNode.flush",
         error: e,
       });
     }
@@ -1878,7 +1670,7 @@ export class LazyByteNode {
       return this.#flushedSignalController.signal;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get LazyByteNode.flushedSignal",
+        functionName: "get LazyByteTransformNode.flushedSignal",
         error: e,
       });
     }
@@ -1926,14 +1718,14 @@ export class LazyByteNode {
       return outputByteLength;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "LazyByteNode.#execute",
+        functionName: "LazyByteTransformNode.#execute",
         error: e,
       });
     }
   }
 }
 
-export class LazyNodeToByte {
+export class LazyTransformNodeToByte {
   #inputCallback;
   #outputCallbackController;
   #transform;
@@ -1956,7 +1748,7 @@ export class LazyNodeToByte {
       this.#flushedSignalController = new Tasks.SignalController();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "LazyNodeToByte constructor",
+        functionName: "LazyTransformNodeToByte constructor",
         error: e,
       });
     }
@@ -1966,7 +1758,7 @@ export class LazyNodeToByte {
       return this.#outputCallbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get LazyNodeToByte.outputCallback",
+        functionName: "get LazyTransformNodeToByte.outputCallback",
         error: e,
       });
     }
@@ -1998,7 +1790,7 @@ export class LazyNodeToByte {
       this.#inputCallback = newCallback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "LazyNodeToByte.connectInput",
+        functionName: "LazyTransformNodeToByte.connectInput",
         error: e,
       });
     }
@@ -2008,7 +1800,7 @@ export class LazyNodeToByte {
       this.#flushing = true;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "LazyNodeToByte.flush",
+        functionName: "LazyTransformNodeToByte.flush",
         error: e,
       });
     }
@@ -2018,7 +1810,7 @@ export class LazyNodeToByte {
       return this.#flushedSignalController.signal;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get LazyNodeToByte.flushedSignal",
+        functionName: "get LazyTransformNodeToByte.flushedSignal",
         error: e,
       });
     }
@@ -2066,14 +1858,14 @@ export class LazyNodeToByte {
       return outputByteLength;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "LazyNodeToByte.#execute",
+        functionName: "LazyTransformNodeToByte.#execute",
         error: e,
       });
     }
   }
 }
 
-export class LazyNodeFromByte {
+export class LazyTransformNodeFromByte {
   #inputCallback;
   #outputCallbackController;
   #transform;
@@ -2098,7 +1890,7 @@ export class LazyNodeFromByte {
       this.#flushedSignalController = new Tasks.SignalController();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "LazyNodeFromByte constructor",
+        functionName: "LazyTransformNodeFromByte constructor",
         error: e,
       });
     }
@@ -2108,7 +1900,7 @@ export class LazyNodeFromByte {
       return this.#outputCallbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get LazyNodeFromByte.outputCallback",
+        functionName: "get LazyTransformNodeFromByte.outputCallback",
         error: e,
       });
     }
@@ -2140,7 +1932,7 @@ export class LazyNodeFromByte {
       this.#inputCallback = newCallback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "LazyNodeFromByte.connectInput",
+        functionName: "LazyTransformNodeFromByte.connectInput",
         error: e,
       });
     }
@@ -2150,7 +1942,7 @@ export class LazyNodeFromByte {
       this.#flushing = true;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "LazyNodeFromByte.flush",
+        functionName: "LazyTransformNodeFromByte.flush",
         error: e,
       });
     }
@@ -2160,7 +1952,7 @@ export class LazyNodeFromByte {
       return this.#flushedSignalController.signal;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get LazyNodeFromByte.flushedSignal",
+        functionName: "get LazyTransformNodeFromByte.flushedSignal",
         error: e,
       });
     }
@@ -2204,7 +1996,7 @@ export class LazyNodeFromByte {
       return outputItem;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "LazyNodeFromByte.#execute",
+        functionName: "LazyTransformNodeFromByte.#execute",
         error: e,
       });
     }
@@ -2552,179 +2344,4 @@ export class AsyncPushSourceNode {
       });
     }
   }
-}
-
-export class Source {
-  constructor() {
-  }
-  init() {
-    return {};
-  }
-  execute(args) {
-    return null;
-  }
-  syncExecute(args) {
-    const state = this.init();
-    const output = new Sequence.Sequence();
-    let outputItem = this.execute({
-      state: state,
-    });
-    while (outputItem !== null) {
-      outputItem = this.execute({
-        state: state,
-      });
-      output.extend(outputItem);
-    }
-    return output;
-  }
-}
-
-export class ByteSource {
-  constructor() {
-  }
-  init() {
-    return {};
-  }
-  execute(args) {
-    return 0;
-  }
-  syncExecute(args) {
-    const state = this.init();
-    const output = new Sequence.ByteSequence();
-    let outputView = output.reserve(args.outputByteRate);
-    let outputBytes = this.execute({
-      output: outputView,
-      state: state,
-    });
-    output.extend(outputBytes);
-    while (outputBytes !== 0) {
-      outputView = output.reserve(args.outputByteRate);
-      outputBytes = this.execute({
-        output: outputView,
-        state: state,
-      });
-      output.extend(outputBytes);
-    }
-    return output;
-  }
-}
-
-export class AsyncSource {
-  constructor() {
-  }
-  async init() {
-    return {};
-  }
-  async execute(args) {
-    return null;
-  }
-  async asyncExecute(args) {
-    const state = await this.init();
-    const output = new Sequence.Sequence();
-    let outputItem = await this.execute({
-      state: state,
-    });
-    while (outputItem !== null) {
-      outputItem = await this.execute({
-        state: state,
-      });
-      output.extend(outputItem);
-    }
-    return output;
-  }
-}
-
-export class AsyncByteSource {
-  constructor() {
-  }
-  async init() {
-    return {};
-  }
-  async execute(args) {
-    return 0;
-  }
-  async asyncExecute(args) {
-    const state = await this.init();
-    const output = new Sequence.ByteSequence();
-    let outputView = output.reserve(args.outputByteRate);
-    let outputBytes = await this.execute({
-      output: outputView,
-      state: state,
-    });
-    output.extend(outputBytes);
-    while (outputBytes !== 0) {
-      outputView = output.reserve(args.outputByteRate);
-      outputBytes = await this.execute({
-        output: outputView,
-        state: state,
-      });
-      output.extend(outputBytes);
-    }
-    return output;
-  }
-}
-
-export function createBlobChunkSource(args) {
-  const { blob, outputByteRate } = (function () {
-    let ret = {};
-    if (!("blob" in args)) {
-      throw "Argument \"blob\" must be provided.";
-    }
-    ret.blob = args.blob;
-    if (!("outputByteRate" in args)) {
-      throw "Argument \"outputByteRate\" must be provided.";
-    }
-    ret.outputByteRate = args.outputByteRate;
-    return ret;
-  })();
-  const blobChunk = new AsyncSource();
-  blobChunk.init = async function () {
-    try {
-      return {
-        blob: blob,
-        blobIndex: 0,
-        outputByteRate: outputByteRate,
-      };
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BlobChunkSource.#execute",
-        error: e,
-      });
-    }
-  }
-  blobChunk.execute = async function (args) {
-    try {
-      const { state } = (function () {
-        let ret = {};
-        if (!("state" in args)) {
-          throw "Argument \"state\" must be provided.";
-        }
-        ret.state = args.state;
-        return ret;
-      })();
-      if (state.blobIndex >= state.blob.size) {
-        return null;
-      }
-      const thisSlice = (function () {
-        if (state.blobIndex + state.outputByteRate > state.blob.size) {
-          return state.blob.slice(state.blobIndex);
-        } else {
-          return state.blob.slice(state.blobIndex, state.blobIndex + state.outputByteRate);
-        }
-      })();
-      state.blobIndex += thisSlice.size;
-      const arrayBuffer = await thisSlice.arrayBuffer();
-      const block = new Memory.Block({
-        arrayBuffer: arrayBuffer,
-      });
-      const view = new Memory.View(block);
-      return view;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "BlobChunkSource.#execute",
-        error: e,
-      });
-    }
-  }
-  return blobChunk;
 }
