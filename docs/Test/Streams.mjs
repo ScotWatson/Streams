@@ -2540,6 +2540,7 @@ export class AsyncPushSourceNode {
   #asyncSource;
   #state;
   #interval;
+  #targetUsage;
   #staticExecute;
   #promise;
   #outputCallback;
@@ -2554,6 +2555,7 @@ export class AsyncPushSourceNode {
       let that = this;
       this.#asyncSource = args.asyncSource;
       this.#interval = args.interval;
+      this.#targetUsage = args.targetUsage;
       // Initialize
       this.#staticExecute = Tasks.createStatic({
         function: this.#execute,
@@ -2664,6 +2666,11 @@ export class AsyncPushSourceNode {
       this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
       this.#avgRunTime *= (1 - this.#smoothingFactor);
       this.#avgRunTime += this.#smoothingFactor * (end - start);
+      const targetInterval = (this.#avgRunTime / this.#targetUsage);
+      this.#interval += 0.1 * (targetInterval - this.#avgInterval);
+      if (this.#interval < 1) {
+        this.#interval = 1;
+      }
       this.#lastStartTime = start;
     } catch (e) {
       ErrorLog.rethrow({
