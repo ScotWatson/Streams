@@ -2679,9 +2679,9 @@ export class AsyncPushSourceNode {
       const end = self.performance.now();
       // Statistics
       ++this.#progressCounter;
-      while (this.#progressCounter >= this.progressThreshold) {
+      while (this.#progressCounter >= this.#progressThreshold) {
         this.#progressSignalController.dispatch();
-        this.#progressCounter -= this.progressThreshold;
+        this.#progressCounter -= this.#progressThreshold;
       }
       this.#avgInterval *= (1 - this.#smoothingFactor);
       this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
