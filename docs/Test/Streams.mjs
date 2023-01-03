@@ -2561,7 +2561,7 @@ export class AsyncPushSourceNode {
         function: this.#execute,
         this: this,
       });
-      this.outputCallback = new Tasks.Callback(null);
+      this.#outputCallback = new Tasks.Callback(null);
       this.#endedSignalController = new Tasks.SignalController();
       // Statistics
       this.#smoothingFactor = args.smoothingFactor;
