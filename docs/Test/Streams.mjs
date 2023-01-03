@@ -2554,7 +2554,7 @@ export class AsyncPushSourceNode {
     try {
       let that = this;
       this.#asyncSource = args.asyncSource;
-      this.#interval = args.interval;
+      this.#interval = 4;
       this.#targetUsage = args.targetUsage;
       // Initialize
       this.#staticExecute = Tasks.createStatic({
