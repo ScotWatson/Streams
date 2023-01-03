@@ -2568,6 +2568,7 @@ export class AsyncPushSourceNode {
       });
       this.#outputCallback = new Tasks.Callback(null);
       this.#endedSignalController = new Tasks.SignalController();
+      this.#progressSignalController = new Tasks.SignalController();
       // Statistics
       this.#smoothingFactor = args.smoothingFactor;
       this.#lastStartTime = performance.now();
