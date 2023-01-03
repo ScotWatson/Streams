@@ -2401,41 +2401,56 @@ export class LazyNodeFromByte {
   }
 }
 
-export class AsyncBytePushSource {
-  #asyncFunction;
-  #outputDataRate;
-  #interval;
+export class AsyncBytePushSourceNode {
+  #source;
+  #state;
+  #outputByteRate;
+  #setTimeoutValue;
+  #targetUsage;
   #smoothingFactor;
   #staticExecute;
   #outputCallback;
   #endedSignalController;
+  #progressSignalController;
+  #progressCounter;
+  #progressThreshold;
   // Statistics
   #avgRunTime;
   #avgInterval;
   #lastStartTime;
-  #outputByteRate;
   constructor(args) {
     try {
-      this.#asyncFunction = args.asyncFunction;
-      this.#outputDataRate = args.outputDataRate;
-      this.#interval = args.interval;
+      this.#source = args.source;
+      this.#outputByteRate = args.outputByteRate;
+      this.#setTimeoutValue = 4;
       this.#smoothingFactor = args.smoothingFactor;
+      this.#targetUsage = args.targetUsage;
+      this.#progressCounter = 0;
+      this.#progressThreshold = args.progressThreshold;
       // Initialize
       this.#staticExecute = Tasks.createStatic({
         function: this.#execute,
         this: this,
       });
-      this.outputCallback = new Tasks.ByteCallback(null);
+      this.#outputCallback = new Tasks.ByteCallback(null);
       this.#endedSignalController = new Tasks.SignalController();
-      const view = this.#outputCallback.allocate(this.#outputByteRate);
-      this.#asyncFunction(view).then(this.#execute);
+      this.#progressSignalController = new Tasks.SignalController();
       // Statistics
       this.#avgRunTime = 0;
-      this.#avgInterval = this.#interval;
+      this.#avgInterval = 4;
       this.#lastStartTime = performance.now();
+      // Initialize
+      (async function (that) {
+        that.#state = await that.#source.init();
+        const view = this.#outputCallback.allocate(this.#outputByteRate);
+        const firstOutput = await that.#source.execute({
+          state: that.#state,
+        });
+        that.#execute(firstOutput);
+      })(this);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "AsyncBytePushSource constructor",
+        functionName: "AsyncBytePushSourceNode constructor",
         error: e,
       });
     }
@@ -2473,7 +2488,7 @@ export class AsyncBytePushSource {
       this.#outputCallback = newCallback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "AsyncBytePushSource.connectOutput",
+        functionName: "AsyncBytePushSourceNode.connectOutput",
         error: e,
       });
     }
@@ -2483,7 +2498,17 @@ export class AsyncBytePushSource {
       return this.#endedSignalController.signal;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get AsyncBytePushSource.endedSignal",
+        functionName: "get AsyncBytePushSourceNode.endedSignal",
+        error: e,
+      });
+    }
+  }
+  get progressSignal() {
+    try {
+      return this.#progressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncBytePushSourceNode.progressSignal",
         error: e,
       });
     }
@@ -2493,7 +2518,7 @@ export class AsyncBytePushSource {
       return this.#avgInterval;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get AsyncBytePushSource.avgInterval",
+        functionName: "get AsyncBytePushSourceNode.avgInterval",
         error: e,
       });
     }
@@ -2503,7 +2528,7 @@ export class AsyncBytePushSource {
       return this.#avgRunTime;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get AsyncBytePushSource.avgRunTime",
+        functionName: "get AsyncBytePushSourceNode.avgRunTime",
         error: e,
       });
     }
@@ -2511,25 +2536,41 @@ export class AsyncBytePushSource {
   async #execute(byteLength) {
     try {
       const start = self.performance.now();
-      let promise;
-      self.setTimeout(function () {
-        promise.then(this.#staticExecute);
-      }, this.#interval);
       this.#outputCallback.invoke(byteLength);
-      if (byteLength !== this.#outputByteRate) {
+      if (byteLength === 0) {
         this.#endedSignalController.dispatch();
         return;
       }
+      let promise;
+      self.setTimeout(function () {
+        promise.then(this.#staticExecute);
+      }, this.#setTimeoutValue);
       const view = this.#outputCallback.allocate(this.#outputByteRate);
-      promise = this.#asyncFunction(view);
+      promise = this.#source.execute({
+        output: view,
+        state: this.state,
+      });
       const end = self.performance.now();
+      // Statistics
+      ++this.#progressCounter;
+      while (this.#progressCounter >= this.#progressThreshold) {
+        this.#progressSignalController.dispatch();
+        this.#progressCounter -= this.#progressThreshold;
+      }
       this.#avgInterval *= (1 - this.#smoothingFactor);
       this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
       this.#avgRunTime *= (1 - this.#smoothingFactor);
       this.#avgRunTime += this.#smoothingFactor * (end - start);
+      // Estimate proper interval
+      const estInterval = (this.#avgRunTime / this.#targetUsage);
+      // Adjust setTimeoutValue to attempt to reach this interval
+      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
+      if (this.#setTimeoutValue < 1) {
+        this.#setTimeoutValue = 1;
+      }
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "AsyncBytePushSource.#execute",
+        functionName: "AsyncBytePushSourceNode.#execute",
         error: e,
       });
     }
@@ -2537,7 +2578,7 @@ export class AsyncBytePushSource {
 }
 
 export class AsyncPushSourceNode {
-  #asyncSource;
+  #source;
   #state;
   #setTimeoutValue;
   #targetUsage;
@@ -2555,8 +2596,7 @@ export class AsyncPushSourceNode {
   #avgInterval;
   constructor(args) {
     try {
-      let that = this;
-      this.#asyncSource = args.asyncSource;
+      this.#source = args.source;
       this.#setTimeoutValue = 4;
       this.#targetUsage = args.targetUsage;
       this.#progressCounter = 0;
@@ -2575,13 +2615,13 @@ export class AsyncPushSourceNode {
       this.#avgRunTime = 0;
       this.#avgInterval = 4;
       // Initialize
-      (async function () {
-        that.#state = await that.#asyncSource.init();
-        const firstOutput = await that.#asyncSource.execute({
+      (async function (that) {
+        that.#state = await that.#source.init();
+        const firstOutput = await that.#source.execute({
           state: that.#state,
         });
         that.#execute(firstOutput);
-      })();
+      })(this);
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "AsyncPushSourceNode constructor",
@@ -2704,6 +2744,61 @@ export class AsyncPushSourceNode {
   }
 }
 
+export class Source {
+  constructor() {
+  }
+  init() {
+    return {};
+  }
+  execute(args) {
+    return null;
+  }
+  syncExecute(args) {
+    const state = this.init();
+    const output = new Sequence.Sequence();
+    let outputItem = this.execute({
+      state: state,
+    });
+    while (outputItem !== null) {
+      outputItem = this.execute({
+        state: state,
+      });
+      output.extend(outputItem);
+    }
+    return output;
+  }
+}
+
+export class ByteSource {
+  constructor() {
+  }
+  init() {
+    return {};
+  }
+  execute(args) {
+    return 0;
+  }
+  syncExecute(args) {
+    const state = this.init();
+    const output = new Sequence.ByteSequence();
+    let outputView = output.reserve(args.outputByteRate);
+    let outputBytes = this.execute({
+      output: outputView,
+      state: state,
+    });
+    output.extend(outputBytes);
+    while (outputBytes !== 0) {
+      outputView = output.reserve(args.outputByteRate);
+      outputBytes = this.execute({
+        output: outputView,
+        state: state,
+      });
+      output.extend(outputBytes);
+    }
+    return output;
+  }
+}
+
 export class AsyncSource {
   constructor() {
   }
@@ -2724,6 +2819,36 @@ export class AsyncSource {
         state: state,
       });
       output.extend(outputItem);
+    }
+    return output;
+  }
+}
+
+export class AsyncByteSource {
+  constructor() {
+  }
+  async init() {
+    return {};
+  }
+  async execute(args) {
+    return 0;
+  }
+  async asyncExecute(args) {
+    const state = await this.init();
+    const output = new Sequence.ByteSequence();
+    let outputView = output.reserve(args.outputByteRate);
+    let outputBytes = await this.execute({
+      output: outputView,
+      state: state,
+    });
+    output.extend(outputBytes);
+    while (outputBytes !== 0) {
+      outputView = output.reserve(args.outputByteRate);
+      outputBytes = await this.execute({
+        output: outputView,
+        state: state,
+      });
+      output.extend(outputBytes);
     }
     return output;
   }
