@@ -2539,7 +2539,7 @@ export class AsyncBytePushSource {
 export class AsyncPushSourceNode {
   #asyncSource;
   #state;
-  #interval;
+  #setTimeoutValue;
   #targetUsage;
   #staticExecute;
   #promise;
@@ -2674,7 +2674,7 @@ export class AsyncPushSourceNode {
       });
       self.setTimeout(function () {
         that.#promise.then(that.#staticExecute);
-      }, this.#interval);
+      }, this.#setTimeoutValue);
       this.#outputCallback.invoke(outputItem);
       const end = self.performance.now();
       // Statistics
@@ -2689,9 +2689,11 @@ export class AsyncPushSourceNode {
       this.#avgRunTime += this.#smoothingFactor * (end - start);
       this.#lastStartTime = start;
       // Estimate proper interval
-      this.#interval = (this.#avgRunTime / this.#targetUsage);
-      if (this.#interval < 1) {
-        this.#interval = 1;
+      const estInterval = (this.#avgRunTime / this.#targetUsage);
+      // Adjust setTimeoutValue to attempt to reach this interval
+      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
+      if (this.#setTimeoutValue < 1) {
+        this.#setTimeoutValue = 1;
       }
     } catch (e) {
       ErrorLog.rethrow({
