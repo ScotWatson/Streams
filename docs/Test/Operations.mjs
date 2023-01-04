@@ -550,7 +550,7 @@ export class AsyncTransformToByte {
       });
     }
   }
-  syncExecuteInto(args) {
+  async asyncExecuteInto(args) {
     try {
       const { input, output } = (function () {
         if (!(Types.isSimpleObject(args))) {
