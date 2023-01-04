@@ -2311,7 +2311,7 @@ export class AsyncPushSourceNode {
       }
       const start = self.performance.now();
       const that = this;
-      this.#promise = this.#asyncSource.execute({
+      this.#promise = this.#source.execute({
         state: this.#state,
       });
       self.setTimeout(function () {
