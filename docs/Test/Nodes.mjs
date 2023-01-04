@@ -9,6 +9,496 @@ import * as Queue from "https://scotwatson.github.io/Containers/Test/Queue.mjs";
 import * as Memory from "https://scotwatson.github.io/Memory/Test/Memory.mjs";
 import * as Tasks from "https://scotwatson.github.io/Tasks/Test/Tasks.mjs";
 
+export class PushSourceNode {
+  #source;
+  #state;
+  #outputCallback;
+  #endedSignalController;
+  #progressSignalController;
+  #progressCounter;
+  #progressThreshold;
+  // Statistics
+  #smoothingFactor;
+  #lastStartTime;
+  #avgRunTime;
+  #avgInterval;
+  constructor(args) {
+    try {
+      const { source, smoothingFactor, targetUsage, progressThreshold } = (function () {
+        let ret;
+        if (!(Types.isSimpleObject(args))) {
+          throw "Argument must be a simple object.";
+        }
+        if (!("source" in args)) {
+          throw "Argument \"source\" must be provided.";
+        }
+        ret.source = args.source;
+        if (!("smoothingFactor" in args)) {
+          throw "Argument \"smoothingFactor\" must be provided.";
+        }
+        ret.smoothingFactor = args.smoothingFactor;
+        if (!("targetUsage" in args)) {
+          throw "Argument \"targetUsage\" must be provided.";
+        }
+        ret.targetUsage = args.targetUsage;
+        if ("progressThreshold" in args) {
+          ret.progressThreshold = args.progressThreshold;
+        } else {
+          ret.progressThreshold = 1;
+        }
+        return ret;
+      })();
+      this.#source = source;
+      this.#state = this.#source.init();
+      this.#targetUsage = targetUsage;
+      this.#smoothingFactor = smoothingFactor;
+      this.#endedSignalController = new Tasks.SignalController();
+      this.#progressSignalController = new Tasks.SignalController();
+      this.#progressCounter = 0;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PushSourceNode constructor",
+        error: e,
+      });
+    }
+  }
+  connectOutput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.callback;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PushSourceNode.connectOutput",
+        error: e,
+      });
+    }
+  }
+  #execute() {
+    try {
+      const start = performance.now();
+      const outputItem = this.#source.execute({
+        state: this.#state,
+      });
+      this.#outputCallback.invoke(outputItem);
+      const end = performance.now();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PushSourceNode.#execute",
+        error: e,
+      });
+    }
+  }
+}
+
+export class PullSourceNode {
+  #source;
+  constructor(args) {
+    try {
+      const { source } = (function () {
+        let ret;
+        if (!(Types.isSimpleObject(args))) {
+          throw "Argument must be a simple object.";
+        }
+        if (!("source" in args)) {
+          throw "Argument \"source\" must be provided.";
+        }
+        ret.source = args.source;
+      })();
+      this.#source = source;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PullSourceNode constructor",
+        error: e,
+      });
+    }
+  }
+  get outputCallback() {
+    try {
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PullSourceNode.outputCallback",
+        error: e,
+      });
+    }
+  }
+}
+
+export class BytePushSourceNode {
+  constructor(args) {
+    
+  }
+}
+
+export class BytePullSourceNode {
+  constructor(args) {
+    
+  }
+}
+
+export class AsyncPushSourceNode {
+  #source;
+  #state;
+  #setTimeoutValue;
+  #targetUsage;
+  #staticExecute;
+  #promise;
+  #outputCallback;
+  #endedSignalController;
+  #progressSignalController;
+  #progressCounter;
+  #progressThreshold;
+  // Statistics
+  #smoothingFactor;
+  #lastStartTime;
+  #avgRunTime;
+  #avgInterval;
+  constructor(args) {
+    try {
+      this.#source = args.source;
+      this.#setTimeoutValue = 4;
+      this.#targetUsage = args.targetUsage;
+      this.#progressCounter = 0;
+      this.#progressThreshold = args.progressThreshold;
+      // Initialize
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#outputCallback = new Tasks.Callback(null);
+      this.#endedSignalController = new Tasks.SignalController();
+      this.#progressSignalController = new Tasks.SignalController();
+      // Statistics
+      this.#smoothingFactor = args.smoothingFactor;
+      this.#lastStartTime = performance.now();
+      this.#avgRunTime = 0;
+      this.#avgInterval = 4;
+      // Initialize
+      (async function (that) {
+        that.#state = await that.#source.init();
+        const firstOutput = await that.#source.execute({
+          state: that.#state,
+        });
+        that.#execute(firstOutput);
+      })(this);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncPushSourceNode constructor",
+        error: e,
+      });
+    }
+  }
+  connectOutput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncPushSourceNode.connectOutput",
+        error: e,
+      });
+    }
+  }
+  get endedSignal() {
+    try {
+      return this.#endedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncPushSourceNode.endedSignal",
+        error: e,
+      });
+    }
+  }
+  get progressSignal() {
+    try {
+      return this.#progressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncPushSourceNode.progressSignal",
+        error: e,
+      });
+    }
+  }
+  get avgInterval() {
+    try {
+      return this.#avgInterval;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncPushSourceNode.avgInterval",
+        error: e,
+      });
+    }
+  }
+  get avgRunTime() {
+    try {
+      return this.#avgRunTime;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncPushSourceNode.avgRunTime",
+        error: e,
+      });
+    }
+  }
+  async #execute(outputItem) {
+    try {
+      if (outputItem === null) {
+        this.#endedSignalController.dispatch();
+        return;
+      }
+      const start = self.performance.now();
+      const that = this;
+      this.#promise = this.#source.execute({
+        state: this.#state,
+      });
+      self.setTimeout(function () {
+        that.#promise.then(that.#staticExecute);
+      }, this.#setTimeoutValue);
+      this.#outputCallback.invoke(outputItem);
+      const end = self.performance.now();
+      // Statistics
+      ++this.#progressCounter;
+      while (this.#progressCounter >= this.#progressThreshold) {
+        this.#progressSignalController.dispatch();
+        this.#progressCounter -= this.#progressThreshold;
+      }
+      this.#avgInterval *= (1 - this.#smoothingFactor);
+      this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
+      this.#avgRunTime *= (1 - this.#smoothingFactor);
+      this.#avgRunTime += this.#smoothingFactor * (end - start);
+      this.#lastStartTime = start;
+      // Estimate proper interval
+      const estInterval = (this.#avgRunTime / this.#targetUsage);
+      // Adjust setTimeoutValue to attempt to reach this interval
+      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
+      if (this.#setTimeoutValue < 1) {
+        this.#setTimeoutValue = 1;
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncPushSourceNode.#execute",
+        error: e,
+      });
+    }
+  }
+}
+
+export class AsyncBytePushSourceNode {
+  #source;
+  #state;
+  #outputByteRate;
+  #setTimeoutValue;
+  #targetUsage;
+  #smoothingFactor;
+  #staticExecute;
+  #outputCallback;
+  #endedSignalController;
+  #progressSignalController;
+  #progressCounter;
+  #progressThreshold;
+  // Statistics
+  #avgRunTime;
+  #avgInterval;
+  #lastStartTime;
+  constructor(args) {
+    try {
+      this.#source = args.source;
+      this.#outputByteRate = args.outputByteRate;
+      this.#setTimeoutValue = 4;
+      this.#smoothingFactor = args.smoothingFactor;
+      this.#targetUsage = args.targetUsage;
+      this.#progressCounter = 0;
+      this.#progressThreshold = args.progressThreshold;
+      // Initialize
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#outputCallback = new Tasks.ByteCallback(null);
+      this.#endedSignalController = new Tasks.SignalController();
+      this.#progressSignalController = new Tasks.SignalController();
+      // Statistics
+      this.#avgRunTime = 0;
+      this.#avgInterval = 4;
+      this.#lastStartTime = performance.now();
+      // Initialize
+      (async function (that) {
+        that.#state = await that.#source.init();
+        const view = this.#outputCallback.allocate(this.#outputByteRate);
+        const firstOutput = await that.#source.execute({
+          state: that.#state,
+        });
+        that.#execute(firstOutput);
+      })(this);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncBytePushSourceNode constructor",
+        error: e,
+      });
+    }
+  }
+  connectOutput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("allocate" in newCallback)) {
+        throw "Callback must have member \"allocate\".";
+      }
+      if (!(Types.isInvocable(newCallback.allocate))) {
+        throw "Callback.allocate must be invocable.";
+      }
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncBytePushSourceNode.connectOutput",
+        error: e,
+      });
+    }
+  }
+  get endedSignal() {
+    try {
+      return this.#endedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncBytePushSourceNode.endedSignal",
+        error: e,
+      });
+    }
+  }
+  get progressSignal() {
+    try {
+      return this.#progressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncBytePushSourceNode.progressSignal",
+        error: e,
+      });
+    }
+  }
+  get avgInterval() {
+    try {
+      return this.#avgInterval;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncBytePushSourceNode.avgInterval",
+        error: e,
+      });
+    }
+  }
+  get avgRunTime() {
+    try {
+      return this.#avgRunTime;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncBytePushSourceNode.avgRunTime",
+        error: e,
+      });
+    }
+  }
+  async #execute(byteLength) {
+    try {
+      const start = self.performance.now();
+      this.#outputCallback.invoke(byteLength);
+      if (byteLength === 0) {
+        this.#endedSignalController.dispatch();
+        return;
+      }
+      let promise;
+      self.setTimeout(function () {
+        promise.then(this.#staticExecute);
+      }, this.#setTimeoutValue);
+      const view = this.#outputCallback.allocate(this.#outputByteRate);
+      promise = this.#source.execute({
+        output: view,
+        state: this.state,
+      });
+      const end = self.performance.now();
+      // Statistics
+      ++this.#progressCounter;
+      while (this.#progressCounter >= this.#progressThreshold) {
+        this.#progressSignalController.dispatch();
+        this.#progressCounter -= this.#progressThreshold;
+      }
+      this.#avgInterval *= (1 - this.#smoothingFactor);
+      this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
+      this.#avgRunTime *= (1 - this.#smoothingFactor);
+      this.#avgRunTime += this.#smoothingFactor * (end - start);
+      // Estimate proper interval
+      const estInterval = (this.#avgRunTime / this.#targetUsage);
+      // Adjust setTimeoutValue to attempt to reach this interval
+      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
+      if (this.#setTimeoutValue < 1) {
+        this.#setTimeoutValue = 1;
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncBytePushSourceNode.#execute",
+        error: e,
+      });
+    }
+  }
+}
+
 export class SplitterNode {
   #inputCallbackController;
   #outputCallbackSet;
@@ -103,373 +593,6 @@ export class SplitterNode {
     }
   }
 }
-
-// From "PushSink" callback
-export function createWritableStream(callback) {
-  try {
-    const underlyingSink = {
-      start: function (controller) {
-      },
-      write: function (chunk, controller) {
-        callback.invoke(chunk);
-      },
-      close: function (controller) {
-      },
-      abort: function (reason) {
-      },
-    };
-    const writeQueuingStrategy = {
-      highWaterMark: 1,
-    }
-    return new self.WritableStream(underlyingSink, writeQueuingStrategy);
-  } catch (e) {
-    ErrorLog.rethrow({
-      functionName: "createWritableStream",
-      error: e,
-    });
-  }
-}
-
-// From "PullSource" callback
-export function createReadableStream(callback) {
-  try {
-    const underlyingSource = {
-      start: function (controller) {
-        return;
-      },
-      pull: function (controller) {
-        const item = callback.invoke();
-        controller.enqueue(item);
-      },
-      cancel: function (reason) {
-        return;
-      },
-    };
-    const readQueuingStrategy = {
-      highWaterMark: 1,
-      size: function (chunk) {
-        return 1;
-      }
-    };
-    return new self.ReadableStream(underlyingSource, readQueuingStrategy);
-  } catch (e) {
-    ErrorLog.rethrow({
-      functionName: "createReadableStream",
-      error: e,
-    });
-  }
-}
-
-// passive
-export class PipeNode {
-  #queue;
-  #inputCallbackController;
-  #outputCallbackController;
-  #bufferFullController;
-  #bufferEmptyController;
-  constructor() {
-    try {
-      this.#queue = new Queue.Queue({
-      });
-      const staticInput = new Tasks.createStatic({
-        function: this.#push,
-        this: this,
-      });
-      this.#inputCallbackController = new Tasks.UniqueCallbackController(staticInput);
-      const staticOutput = new Tasks.createStatic({
-        function: this.#pull,
-        this: this,
-      });
-      this.#outputCallbackController = new Tasks.UniqueCallbackController(staticOutput);
-      this.#bufferFullController = new Tasks.SignalController();
-      this.#bufferEmptyController = new Tasks.SignalController();
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PipeNode constructor",
-        error: e,
-      });
-    }
-  }
-  get inputCallback() {
-    try {
-      return this.#inputCallbackController.callback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get PipeNode.inputCallback",
-        error: e,
-      });
-    }
-  }
-  #push(item) {
-    try {
-      if (this.#queue.unusedCapacity === 0) {
-        this.#bufferFullController.dispatch();
-      }
-      this.#queue.enqueue(item);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PipeNode.#push",
-        error: e,
-      });
-    }
-  }
-  get outputCallback() {
-    try {
-      return this.#outputCallbackController.output;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get PipeNode.outputCallback",
-        error: e,
-      });
-    }
-  }
-  #pull() {
-    try {
-      if (this.#queue.usedCapacity === 0) {
-        this.#bufferEmptyController.dispatch();
-      }
-      return this.#queue.dequeue();
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PipeNode.#pull",
-        error: e,
-      });
-    }
-  }
-  get bufferEmpty() {
-    try {
-      return this.#bufferEmptyController.signal;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get PipeNode.bufferEmpty",
-        error: e,
-      });
-    }
-  }
-  get bufferFull() {
-    try {
-      return this.#bufferFullController.signal;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get PipeNode.bufferFull",
-        error: e,
-      });
-    }
-  }
-};
-
-// active
-export class PumpNode {
-  #inputCallback;
-  #outputCallback;
-  constructor() {
-    try {
-      this.#inputCallback = new Callback(null);
-      this.#outputCallback = new Callback(null);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PumpNode constructor",
-        error: e,
-      });
-    }
-  }
-  connectInput(args) {
-    try {
-      this.#inputCallback = args;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PumpNode.connectInput",
-        error: e,
-      });
-    }
-  }
-  connectOutput(args) {
-    try {
-      this.#outputCallback = args;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PumpNode.connectOutput",
-        error: e,
-      });
-    }
-  }
-  execute() {
-    try {
-      const item = this.#inputCallback.invoke();
-      this.#outputCallback.invoke(item);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PumpNode.execute",
-        error: e,
-      });
-    }
-  }
-}
-
-export class ReadableByteStreamPushSource {
-  #reader;
-  #pushSourceController;
-  #closedSignalController;
-  #cancelledSignalController;
-  constructor(args) {
-    try {
-      const { readableStream, chunkByteLength } = (function () {
-        let ret = {};
-        if (Types.isSimpleObject(args)) {
-          if (!(Object.hasOwn(args, "readableStream"))) {
-            throw "Argument \"readableStream\" must be provided.";
-          }
-          ret.readableStream = args.readableStream;
-          if (!(Object.hasOwn(args, "chunkByteLength"))) {
-            throw "Argument \"chunkByteLength\" must be provided.";
-          }
-          ret.chunkByteLength = args.chunkByteLength;
-        } else {
-          throw "Invalid Arguments";
-        }
-        return ret;
-      })();
-      if (!(readableStream instanceof self.ReadableStream)) {
-        throw "Argument \"readableStream\" must be of type self.ReadableStream.";
-      }
-      if (readableStream.locked) {
-        throw "Argument \"readableStream\" must be unlocked.";
-      }
-      const reader = readableStream.getReader({ mode: "byob" });
-      this.#reader = reader;
-      const callbackFunction = Tasks.createStatic({
-        function: this.#process,
-        this: this,
-      });
-      const callbackController = new Tasks.CallbackController({
-        invoke: callbackFunction,
-      });
-      this.#pushSourceController = new AsyncByteReaderPushSource({
-        callback: callbackController.callback,
-        outputByteRate: outputByteRate,
-      });
-      this.#closedSignalController = new Tasks.SignalController();
-      this.#cancelledSignalController = new Tasks.SignalController();
-      const dispatchClose = Tasks.createStatic({
-        function: this.#dispatchClose,
-        this: this,
-      });
-      reader.closed.then(dispatchClose);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "ReadableByteStreamPushSource constructor",
-        error: e,
-      });
-    }
-  }
-  #dispatchClose() {
-    this.#closedSignalController.dispatch();
-    this.#cancelledSignalController.dispatch();
-  }
-  connectOutput(args) {
-    try {
-      return this.#pushSourceController.connectOutput(args);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "ReadableByteStreamPushSource.connectOutput",
-        error: e,
-      });
-    }
-  }
-  async #process(view) {
-    try {
-      const uint8Array = view.toUint8Array();
-      const { value, done } = await this.#reader.read(uint8Array);
-      if (done) {
-        return null;
-      }
-      return value.byteLength;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "ReadableByteStreamPushSource.process",
-        error: e,
-      });
-    }
-  }
-  get closed() {
-    try {
-      return this.#closedSignalController.signal;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get ReadableByteStreamPushSource.closed",
-        error: e,
-      });
-    }
-  }
-  get cancelled() {
-    try {
-      return this.#cancelledSignalController.signal;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get ReadableByteStreamPushSource.cancelled",
-        error: e,
-      });
-    }
-  }
-};
-
-export class WritableStreamPushSink {
-  #pushCallbackController;
-  #writer;
-  constructor(args) {
-    try {
-      let writableStream = (function () {
-        if (Types.isSimpleObject(args)) {
-          if (Object.hasOwn(args, "writableStream")) {
-            throw "Argument \"writableStream\" must be provided.";
-          }
-          writableStream = args.writableStream;
-        } else {
-          writableStream = args;
-        }
-      })();
-      if (!(writableStream instanceof self.WritableStream)) {
-        throw "Argument \"writableStream\" must be of type self.WritableStream.";
-      }
-      if (writableStream.locked) {
-        throw "Argument \"writableStream\" must be unlocked.";
-      }
-      this.#writer = writableStream.getWriter();
-      const pushSinkCallbackFunction = Tasks.createStatic({
-        function: this.#writer.write,
-        this: this.#writer,
-      });
-      this.#pushCallbackController = new Tasks.CallbackController({
-        invoke: pushSinkCallbackFunction,
-      });
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "WritableStreamPushSink constructor",
-        error: e,
-      });
-    }
-  }
-  get inputCallback() {
-    try {
-      return this.#pushCallbackController.callback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get WritableStreamPushSink.callback",
-        error: e,
-      });
-    }
-  }
-  disconnectInput() {
-    try {
-      this.#pushCallbackController.replace(null);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "WritableStreamPushSink.disconnectInput",
-        error: e,
-      });
-    }
-  }
-};
 
 export class ByteSplitterNode {
   #inputCallbackController;
@@ -593,67 +716,103 @@ export class ByteSplitterNode {
   }
 }
 
-// From "PushSink" byte callback
-export function createWritableByteStream(callback) {
-  try {
-    const underlyingSink = {
-      start: function (controller) {
-      },
-      write: function (chunk, controller) {
-        const view = callback.allocate(chunk.byteLength);
-        view.set(chunk);
-        callback.invoke(chunk.byteLength);
-      },
-      close: function (controller) {
-      },
-      abort: function (reason) {
-      },
-      mode: "bytes",
-    };
-    const writeQueuingStrategy = {
-      highWaterMark: 1,
+export class PipeNode {
+  #queue;
+  #inputCallbackController;
+  #outputCallbackController;
+  #bufferFullController;
+  #bufferEmptyController;
+  constructor() {
+    try {
+      this.#queue = new Queue.Queue({
+      });
+      const staticInput = new Tasks.createStatic({
+        function: this.#push,
+        this: this,
+      });
+      this.#inputCallbackController = new Tasks.UniqueCallbackController(staticInput);
+      const staticOutput = new Tasks.createStatic({
+        function: this.#pull,
+        this: this,
+      });
+      this.#outputCallbackController = new Tasks.UniqueCallbackController(staticOutput);
+      this.#bufferFullController = new Tasks.SignalController();
+      this.#bufferEmptyController = new Tasks.SignalController();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PipeNode constructor",
+        error: e,
+      });
     }
-    return new self.WritableStream(underlyingSink, writeQueuingStrategy);
-  } catch (e) {
-    ErrorLog.rethrow({
-      functionName: "createWritableByteStream",
-      error: e,
-    });
   }
-}
-
-// From "PullSource" callback (not byte callback)
-export function createReadableByteStream(callback) {
-  try {
-    const underlyingSource = {
-      start: function (controller) {
-        return;
-      },
-      pull: function (controller) {
-        const item = callback.invoke();
-        controller.enqueue(item);
-      },
-      cancel: function (reason) {
-        return;
-      },
-      mode: "bytes",
-    };
-    const readQueuingStrategy = {
-      highWaterMark: 1,
-      size: function (chunk) {
-        return 1;
+  get inputCallback() {
+    try {
+      return this.#inputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PipeNode.inputCallback",
+        error: e,
+      });
+    }
+  }
+  #push(item) {
+    try {
+      if (this.#queue.unusedCapacity === 0) {
+        this.#bufferFullController.dispatch();
       }
-    };
-    return new self.ReadableStream(underlyingSource, readQueuingStrategy);
-  } catch (e) {
-    ErrorLog.rethrow({
-      functionName: "createReadableByteStream",
-      error: e,
-    });
+      this.#queue.enqueue(item);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PipeNode.#push",
+        error: e,
+      });
+    }
   }
-}
+  get outputCallback() {
+    try {
+      return this.#outputCallbackController.output;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PipeNode.outputCallback",
+        error: e,
+      });
+    }
+  }
+  #pull() {
+    try {
+      if (this.#queue.usedCapacity === 0) {
+        this.#bufferEmptyController.dispatch();
+      }
+      return this.#queue.dequeue();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PipeNode.#pull",
+        error: e,
+      });
+    }
+  }
+  get bufferEmpty() {
+    try {
+      return this.#bufferEmptyController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PipeNode.bufferEmpty",
+        error: e,
+      });
+    }
+  }
+  get bufferFull() {
+    try {
+      return this.#bufferFullController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PipeNode.bufferFull",
+        error: e,
+      });
+    }
+  }
+};
 
-// passive
 export class BytePipeNode {
   #queue;
   #inputCallbackController;
@@ -770,7 +929,53 @@ export class BytePipeNode {
   }
 };
 
-// active
+export class PumpNode {
+  #inputCallback;
+  #outputCallback;
+  constructor() {
+    try {
+      this.#inputCallback = new Tasks.Callback(null);
+      this.#outputCallback = new Tasks.Callback(null);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PumpNode constructor",
+        error: e,
+      });
+    }
+  }
+  connectInput(args) {
+    try {
+      this.#inputCallback = args;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PumpNode.connectInput",
+        error: e,
+      });
+    }
+  }
+  connectOutput(args) {
+    try {
+      this.#outputCallback = args;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PumpNode.connectOutput",
+        error: e,
+      });
+    }
+  }
+  execute() {
+    try {
+      const item = this.#inputCallback.invoke();
+      this.#outputCallback.invoke(item);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PumpNode.execute",
+        error: e,
+      });
+    }
+  }
+}
+
 export class BytePumpNode {
   #inputCallback;
   #outputCallback;
@@ -955,184 +1160,6 @@ export class PassiveTransformNode {
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PassiveTransformNode.#execute",
-        error: e,
-      });
-    }
-  }
-}
-
-export class PassiveByteTransformNode {
-  #inputCallbackController;
-  #outputCallback;
-  #transform;
-  #state;
-  #flushedSignalController;
-  #outputByteRate;
-  #block;
-  constructor(args) {
-    try {
-      const staticExecute = Tasks.createStatic({
-        function: this.#execute,
-        this: this,
-      });
-      this.#inputCallbackController = new Tasks.UniqueByteCallbackController({
-        invoke: staticExecute,
-      });
-      this.#outputCallback = new Tasks.ByteCallback(null);
-      this.#transform = args.transform;
-      this.#state = this.#transform.init();
-      this.#flushedSignalController = new Tasks.SignalController();
-      this.#outputByteRate = args.outputByteRate;
-      this.#block = null;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PassiveByteTransformNode constructor",
-        error: e,
-      });
-    }
-  }
-  get inputCallback() {
-    try {
-      return this.#inputCallbackController.callback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get PassiveByteTransformNode.inputCallback",
-        error: e,
-      });
-    }
-  }
-  connectOutput(args) {
-    try {
-      const newCallback = (function () {
-        if (Types.isSimpleObject(args)) {
-          if (!(Object.hasOwn(args, "callback"))) {
-            throw "Argument \"callback\" must be provided.";
-          }
-          return args.sink;
-        } else {
-          return args;
-        }
-      })();
-      if (!("allocate" in newCallback)) {
-        throw "Callback must have member \"allocate\".";
-      }
-      if (!(Types.isInvocable(newCallback.allocate))) {
-        throw "Callback.allocate must be invocable.";
-      }
-      if (!("invoke" in newCallback)) {
-        throw "Callback must have member \"invoke\".";
-      }
-      if (!(Types.isInvocable(newCallback.invoke))) {
-        throw "Callback.invoke must be invocable.";
-      }
-      if (!("isRevoked" in newCallback)) {
-        throw "Callback must have member \"isRevoked\".";
-      }
-      if (!(Types.isInvocable(newCallback.isRevoked))) {
-        throw "Callback.isRevoked must be invocable.";
-      }
-      this.#outputCallback = newCallback;
-      let outputView = this.#outputCallback.allocate(this.#outputByteRate);
-      let outputByteLength = this.#transform.execute({
-        input: null,
-        output: outputView,
-        state: this.#state,
-      });
-      while (outputByteLength === outputView.byteLength) {
-        this.#outputCallback.invoke(outputByteLength);
-        outputView = this.#outputCallback.allocate(this.#outputByteRate);
-        outputByteLength = this.#transform.execute({
-          input: null,
-          output: outputView,
-          state: this.#state,
-        });
-      }
-      this.#outputCallback.invoke(outputByteLength);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PassiveByteTransformNode.connectOutput",
-        error: e,
-      });
-    }
-  }
-  #allocate(byteLength) {
-    try {
-      this.#block = new Memory.Block({
-        byteLength: byteLength,
-      });
-      return new Memory.View(this.#block);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PassiveByteTransformNode.#allocate",
-        error: e,
-      });
-    }
-  }
-  flush() {
-    try {
-      let outputView = this.#outputCallback.allocate(this.#outputByteRate);
-      let outputByteLength = this.#transform.flush({
-        output: outputView,
-        state: this.#state,
-      });
-      while (outputByteLength !== 0) {
-        this.#outputCallback.invoke(outputByteLength);
-        outputView = this.#outputCallback.allocate(this.#outputByteRate);
-        outputByteLength = this.#transform.flush({
-          output: outputView,
-          state: this.#state,
-        });
-      }
-      this.#state = this.#transform.init();
-      this.#flushedSignalController.dispatch();
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PassiveByteTransformNode.flush",
-        error: e,
-      });
-    }
-  }
-  get flushedSignal() {
-    try {
-      return this.#flushedSignalController.signal;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get PassiveByteTransformNode.flushedSignal",
-        error: e,
-      });
-    }
-  }
-  #execute(byteLength) {
-    try {
-      const inputView = (function () {
-        if (this.#block === null) {
-          return null;
-        }
-        return new Memory.View({
-          memoryBlock: this.#block,
-          byteLength: byteLength,
-        });
-      })();
-      let outputView = this.#outputCallback.allocate(this.#outputByteRate);
-      let outputByteLength = this.#transform.execute({
-        input: inputView,
-        output: outputView,
-        state: this.#state,
-      });
-      while (outputByteLength === outputView.byteLength) {
-        this.#outputCallback.invoke(outputByteLength);
-        outputView = this.#outputCallback.allocate(this.#outputByteRate);
-        outputByteLength = this.#transform.execute({
-          input: null,
-          output: outputView,
-          state: this.#state,
-        });
-      }
-      this.#outputCallback.invoke(outputByteLength);
-      this.#block = null;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "PassiveByteTransformNode.#execute",
         error: e,
       });
     }
@@ -1447,6 +1474,184 @@ export class PassiveTransformNodeFromByte {
   }
 }
 
+export class PassiveByteTransformNode {
+  #inputCallbackController;
+  #outputCallback;
+  #transform;
+  #state;
+  #flushedSignalController;
+  #outputByteRate;
+  #block;
+  constructor(args) {
+    try {
+      const staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#inputCallbackController = new Tasks.UniqueByteCallbackController({
+        invoke: staticExecute,
+      });
+      this.#outputCallback = new Tasks.ByteCallback(null);
+      this.#transform = args.transform;
+      this.#state = this.#transform.init();
+      this.#flushedSignalController = new Tasks.SignalController();
+      this.#outputByteRate = args.outputByteRate;
+      this.#block = null;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveByteTransformNode constructor",
+        error: e,
+      });
+    }
+  }
+  get inputCallback() {
+    try {
+      return this.#inputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PassiveByteTransformNode.inputCallback",
+        error: e,
+      });
+    }
+  }
+  connectOutput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("allocate" in newCallback)) {
+        throw "Callback must have member \"allocate\".";
+      }
+      if (!(Types.isInvocable(newCallback.allocate))) {
+        throw "Callback.allocate must be invocable.";
+      }
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+      let outputView = this.#outputCallback.allocate(this.#outputByteRate);
+      let outputByteLength = this.#transform.execute({
+        input: null,
+        output: outputView,
+        state: this.#state,
+      });
+      while (outputByteLength === outputView.byteLength) {
+        this.#outputCallback.invoke(outputByteLength);
+        outputView = this.#outputCallback.allocate(this.#outputByteRate);
+        outputByteLength = this.#transform.execute({
+          input: null,
+          output: outputView,
+          state: this.#state,
+        });
+      }
+      this.#outputCallback.invoke(outputByteLength);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveByteTransformNode.connectOutput",
+        error: e,
+      });
+    }
+  }
+  #allocate(byteLength) {
+    try {
+      this.#block = new Memory.Block({
+        byteLength: byteLength,
+      });
+      return new Memory.View(this.#block);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveByteTransformNode.#allocate",
+        error: e,
+      });
+    }
+  }
+  flush() {
+    try {
+      let outputView = this.#outputCallback.allocate(this.#outputByteRate);
+      let outputByteLength = this.#transform.flush({
+        output: outputView,
+        state: this.#state,
+      });
+      while (outputByteLength !== 0) {
+        this.#outputCallback.invoke(outputByteLength);
+        outputView = this.#outputCallback.allocate(this.#outputByteRate);
+        outputByteLength = this.#transform.flush({
+          output: outputView,
+          state: this.#state,
+        });
+      }
+      this.#state = this.#transform.init();
+      this.#flushedSignalController.dispatch();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveByteTransformNode.flush",
+        error: e,
+      });
+    }
+  }
+  get flushedSignal() {
+    try {
+      return this.#flushedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PassiveByteTransformNode.flushedSignal",
+        error: e,
+      });
+    }
+  }
+  #execute(byteLength) {
+    try {
+      const inputView = (function () {
+        if (this.#block === null) {
+          return null;
+        }
+        return new Memory.View({
+          memoryBlock: this.#block,
+          byteLength: byteLength,
+        });
+      })();
+      let outputView = this.#outputCallback.allocate(this.#outputByteRate);
+      let outputByteLength = this.#transform.execute({
+        input: inputView,
+        output: outputView,
+        state: this.#state,
+      });
+      while (outputByteLength === outputView.byteLength) {
+        this.#outputCallback.invoke(outputByteLength);
+        outputView = this.#outputCallback.allocate(this.#outputByteRate);
+        outputByteLength = this.#transform.execute({
+          input: null,
+          output: outputView,
+          state: this.#state,
+        });
+      }
+      this.#outputCallback.invoke(outputByteLength);
+      this.#block = null;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PassiveByteTransformNode.#execute",
+        error: e,
+      });
+    }
+  }
+}
+
 export class LazyTransformNode {
   #inputCallback;
   #outputCallbackController;
@@ -1577,148 +1782,6 @@ export class LazyTransformNode {
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "LazyTransformNode.#execute",
-        error: e,
-      });
-    }
-  }
-}
-
-export class LazyByteTransformNode {
-  #inputCallback;
-  #outputCallbackController;
-  #transform;
-  #state;
-  #inputDataRate;
-  #flushing;
-  #flushedSignalController;
-  constructor(args) {
-    try {
-      const staticExecute = Tasks.createStatic({
-        function: this.#execute,
-        this: this,
-      });
-      this.#inputCallback = new Tasks.Callback();
-      this.#outputCallbackController = new Tasks.UniqueCallbackController({
-        invoke: staticExecute,
-      });
-      this.#transform = args.transform;
-      this.#state = args.state;
-      this.#inputDataRate = args.#inputDataRate;
-      this.#flushing = false;
-      this.#flushedSignalController = new Tasks.SignalController();
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "LazyByteTransformNode constructor",
-        error: e,
-      });
-    }
-  }
-  get outputCallback() {
-    try {
-      return this.#outputCallbackController.callback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get LazyByteTransformNode.outputCallback",
-        error: e,
-      });
-    }
-  }
-  connectInput(args) {
-    try {
-      const newCallback = (function () {
-        if (Types.isSimpleObject(args)) {
-          if (!(Object.hasOwn(args, "callback"))) {
-            throw "Argument \"callback\" must be provided.";
-          }
-          return args.sink;
-        } else {
-          return args;
-        }
-      })();
-      if (!("invoke" in newCallback)) {
-        throw "Callback must have member \"invoke\".";
-      }
-      if (!(Types.isInvocable(newCallback.invoke))) {
-        throw "Callback.invoke must be invocable.";
-      }
-      if (!("isRevoked" in newCallback)) {
-        throw "Callback must have member \"isRevoked\".";
-      }
-      if (!(Types.isInvocable(newCallback.isRevoked))) {
-        throw "Callback.isRevoked must be invocable.";
-      }
-      this.#inputCallback = newCallback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "LazyByteTransformNode.connectInput",
-        error: e,
-      });
-    }
-  }
-  flush() {
-    try {
-      this.#flushing = true;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "LazyByteTransformNode.flush",
-        error: e,
-      });
-    }
-  }
-  get flushedSignal() {
-    try {
-      return this.#flushedSignalController.signal;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get LazyByteTransformNode.flushedSignal",
-        error: e,
-      });
-    }
-  }
-  #execute(outputView) {
-    try {
-      // input: create and pass Memory.View
-      // transform: writes data to outputView
-      if (this.#flushing) {
-        let outputByteLength = this.#transform.execute({
-          input: null,
-          output: outputView,
-          state: this.#state,
-        });
-        if (outputByteLength !== 0) {
-          return outputByteLength;
-        }
-        // Flushing is complete, perform reset
-        this.#state = this.#transform.init();
-        this.#flushedSignalController.dispatch();
-        return 0;
-      }
-      let outputByteLength = this.#transform.execute({
-        input: null,
-        output: outputView,
-        state: this.#state,
-      });
-      if (outputByteLength !== 0) {
-        return outputByteLength;
-      }
-      let inputView = this.#inputCallback.invoke(this.#inputDataRate);
-      outputByteLength = this.#transform.execute({
-        input: inputView,
-        output: outputView,
-        state: this.#state,
-      });
-      while (outputByteLength === 0) {
-        inputView = this.#inputCallback.invoke(this.#inputDataRate);
-        outputByteLength = this.#transform.execute({
-          input: inputView,
-          output: outputView,
-          state: this.#state,
-        });
-      }
-      return outputByteLength;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "LazyByteTransformNode.#execute",
         error: e,
       });
     }
@@ -2003,61 +2066,47 @@ export class LazyTransformNodeFromByte {
   }
 }
 
-export class AsyncBytePushSourceNode {
-  #source;
+export class LazyByteTransformNode {
+  #inputCallback;
+  #outputCallbackController;
+  #transform;
   #state;
-  #outputByteRate;
-  #setTimeoutValue;
-  #targetUsage;
-  #smoothingFactor;
-  #staticExecute;
-  #outputCallback;
-  #endedSignalController;
-  #progressSignalController;
-  #progressCounter;
-  #progressThreshold;
-  // Statistics
-  #avgRunTime;
-  #avgInterval;
-  #lastStartTime;
+  #inputDataRate;
+  #flushing;
+  #flushedSignalController;
   constructor(args) {
     try {
-      this.#source = args.source;
-      this.#outputByteRate = args.outputByteRate;
-      this.#setTimeoutValue = 4;
-      this.#smoothingFactor = args.smoothingFactor;
-      this.#targetUsage = args.targetUsage;
-      this.#progressCounter = 0;
-      this.#progressThreshold = args.progressThreshold;
-      // Initialize
-      this.#staticExecute = Tasks.createStatic({
+      const staticExecute = Tasks.createStatic({
         function: this.#execute,
         this: this,
       });
-      this.#outputCallback = new Tasks.ByteCallback(null);
-      this.#endedSignalController = new Tasks.SignalController();
-      this.#progressSignalController = new Tasks.SignalController();
-      // Statistics
-      this.#avgRunTime = 0;
-      this.#avgInterval = 4;
-      this.#lastStartTime = performance.now();
-      // Initialize
-      (async function (that) {
-        that.#state = await that.#source.init();
-        const view = this.#outputCallback.allocate(this.#outputByteRate);
-        const firstOutput = await that.#source.execute({
-          state: that.#state,
-        });
-        that.#execute(firstOutput);
-      })(this);
+      this.#inputCallback = new Tasks.Callback();
+      this.#outputCallbackController = new Tasks.UniqueCallbackController({
+        invoke: staticExecute,
+      });
+      this.#transform = args.transform;
+      this.#state = args.state;
+      this.#inputDataRate = args.#inputDataRate;
+      this.#flushing = false;
+      this.#flushedSignalController = new Tasks.SignalController();
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "AsyncBytePushSourceNode constructor",
+        functionName: "LazyByteTransformNode constructor",
         error: e,
       });
     }
   }
-  connectOutput(args) {
+  get outputCallback() {
+    try {
+      return this.#outputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get LazyByteTransformNode.outputCallback",
+        error: e,
+      });
+    }
+  }
+  connectInput(args) {
     try {
       const newCallback = (function () {
         if (Types.isSimpleObject(args)) {
@@ -2069,12 +2118,6 @@ export class AsyncBytePushSourceNode {
           return args;
         }
       })();
-      if (!("allocate" in newCallback)) {
-        throw "Callback must have member \"allocate\".";
-      }
-      if (!(Types.isInvocable(newCallback.allocate))) {
-        throw "Callback.allocate must be invocable.";
-      }
       if (!("invoke" in newCallback)) {
         throw "Callback must have member \"invoke\".";
       }
@@ -2087,261 +2130,433 @@ export class AsyncBytePushSourceNode {
       if (!(Types.isInvocable(newCallback.isRevoked))) {
         throw "Callback.isRevoked must be invocable.";
       }
-      this.#outputCallback = newCallback;
+      this.#inputCallback = newCallback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "AsyncBytePushSourceNode.connectOutput",
+        functionName: "LazyByteTransformNode.connectInput",
         error: e,
       });
     }
   }
-  get endedSignal() {
+  flush() {
     try {
-      return this.#endedSignalController.signal;
+      this.#flushing = true;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get AsyncBytePushSourceNode.endedSignal",
+        functionName: "LazyByteTransformNode.flush",
         error: e,
       });
     }
   }
-  get progressSignal() {
+  get flushedSignal() {
     try {
-      return this.#progressSignalController.signal;
+      return this.#flushedSignalController.signal;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get AsyncBytePushSourceNode.progressSignal",
+        functionName: "get LazyByteTransformNode.flushedSignal",
         error: e,
       });
     }
   }
-  get avgInterval() {
+  #execute(outputView) {
     try {
-      return this.#avgInterval;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get AsyncBytePushSourceNode.avgInterval",
-        error: e,
-      });
-    }
-  }
-  get avgRunTime() {
-    try {
-      return this.#avgRunTime;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get AsyncBytePushSourceNode.avgRunTime",
-        error: e,
-      });
-    }
-  }
-  async #execute(byteLength) {
-    try {
-      const start = self.performance.now();
-      this.#outputCallback.invoke(byteLength);
-      if (byteLength === 0) {
-        this.#endedSignalController.dispatch();
-        return;
+      // input: create and pass Memory.View
+      // transform: writes data to outputView
+      if (this.#flushing) {
+        let outputByteLength = this.#transform.execute({
+          input: null,
+          output: outputView,
+          state: this.#state,
+        });
+        if (outputByteLength !== 0) {
+          return outputByteLength;
+        }
+        // Flushing is complete, perform reset
+        this.#state = this.#transform.init();
+        this.#flushedSignalController.dispatch();
+        return 0;
       }
-      let promise;
-      self.setTimeout(function () {
-        promise.then(this.#staticExecute);
-      }, this.#setTimeoutValue);
-      const view = this.#outputCallback.allocate(this.#outputByteRate);
-      promise = this.#source.execute({
-        output: view,
-        state: this.state,
+      let outputByteLength = this.#transform.execute({
+        input: null,
+        output: outputView,
+        state: this.#state,
       });
-      const end = self.performance.now();
-      // Statistics
-      ++this.#progressCounter;
-      while (this.#progressCounter >= this.#progressThreshold) {
-        this.#progressSignalController.dispatch();
-        this.#progressCounter -= this.#progressThreshold;
+      if (outputByteLength !== 0) {
+        return outputByteLength;
       }
-      this.#avgInterval *= (1 - this.#smoothingFactor);
-      this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
-      this.#avgRunTime *= (1 - this.#smoothingFactor);
-      this.#avgRunTime += this.#smoothingFactor * (end - start);
-      // Estimate proper interval
-      const estInterval = (this.#avgRunTime / this.#targetUsage);
-      // Adjust setTimeoutValue to attempt to reach this interval
-      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
-      if (this.#setTimeoutValue < 1) {
-        this.#setTimeoutValue = 1;
+      let inputView = this.#inputCallback.invoke(this.#inputDataRate);
+      outputByteLength = this.#transform.execute({
+        input: inputView,
+        output: outputView,
+        state: this.#state,
+      });
+      while (outputByteLength === 0) {
+        inputView = this.#inputCallback.invoke(this.#inputDataRate);
+        outputByteLength = this.#transform.execute({
+          input: inputView,
+          output: outputView,
+          state: this.#state,
+        });
       }
+      return outputByteLength;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "AsyncBytePushSourceNode.#execute",
+        functionName: "LazyByteTransformNode.#execute",
         error: e,
       });
     }
   }
 }
 
-export class AsyncPushSourceNode {
-  #source;
-  #state;
-  #setTimeoutValue;
-  #targetUsage;
-  #staticExecute;
-  #promise;
-  #outputCallback;
-  #endedSignalController;
-  #progressSignalController;
-  #progressCounter;
-  #progressThreshold;
-  // Statistics
-  #smoothingFactor;
-  #lastStartTime;
-  #avgRunTime;
-  #avgInterval;
+export class AsyncTransformNode {
+  constructor(args) {
+    
+  }
+}
+
+export class AsyncTransformNodeToByte {
+  constructor(args) {
+    
+  }
+}
+
+export class AsyncTransformNodeFromByte {
+  constructor(args) {
+    
+  }
+}
+
+export class AsyncByteTransformNode {
+  constructor(args) {
+    
+  }
+}
+
+export class PushSinkNode {
+  constructor(args) {
+    
+  }
+}
+
+export class PullSinkNode {
+  constructor(args) {
+    
+  }
+}
+
+export class BytePushSinkNode {
+  constructor(args) {
+    
+  }
+}
+
+export class BytePullSinkNode {
+  constructor(args) {
+    
+  }
+}
+
+export class AsyncPullSinkNode {
+  constructor(args) {
+    
+  }
+}
+
+export class AsyncBytePullSinkNode {
+  constructor(args) {
+    
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+// From "PushSink" callback
+export function createWritableStream(callback) {
+  try {
+    const underlyingSink = {
+      start: function (controller) {
+      },
+      write: function (chunk, controller) {
+        callback.invoke(chunk);
+      },
+      close: function (controller) {
+      },
+      abort: function (reason) {
+      },
+    };
+    const writeQueuingStrategy = {
+      highWaterMark: 1,
+    }
+    return new self.WritableStream(underlyingSink, writeQueuingStrategy);
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "createWritableStream",
+      error: e,
+    });
+  }
+}
+
+// From "PullSource" callback
+export function createReadableStream(callback) {
+  try {
+    const underlyingSource = {
+      start: function (controller) {
+        return;
+      },
+      pull: function (controller) {
+        const item = callback.invoke();
+        controller.enqueue(item);
+      },
+      cancel: function (reason) {
+        return;
+      },
+    };
+    const readQueuingStrategy = {
+      highWaterMark: 1,
+      size: function (chunk) {
+        return 1;
+      }
+    };
+    return new self.ReadableStream(underlyingSource, readQueuingStrategy);
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "createReadableStream",
+      error: e,
+    });
+  }
+}
+
+export class ReadableByteStreamPushSource {
+  #reader;
+  #pushSourceController;
+  #closedSignalController;
+  #cancelledSignalController;
   constructor(args) {
     try {
-      this.#source = args.source;
-      this.#setTimeoutValue = 4;
-      this.#targetUsage = args.targetUsage;
-      this.#progressCounter = 0;
-      this.#progressThreshold = args.progressThreshold;
-      // Initialize
-      this.#staticExecute = Tasks.createStatic({
-        function: this.#execute,
+      const { readableStream, chunkByteLength } = (function () {
+        let ret = {};
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "readableStream"))) {
+            throw "Argument \"readableStream\" must be provided.";
+          }
+          ret.readableStream = args.readableStream;
+          if (!(Object.hasOwn(args, "chunkByteLength"))) {
+            throw "Argument \"chunkByteLength\" must be provided.";
+          }
+          ret.chunkByteLength = args.chunkByteLength;
+        } else {
+          throw "Invalid Arguments";
+        }
+        return ret;
+      })();
+      if (!(readableStream instanceof self.ReadableStream)) {
+        throw "Argument \"readableStream\" must be of type self.ReadableStream.";
+      }
+      if (readableStream.locked) {
+        throw "Argument \"readableStream\" must be unlocked.";
+      }
+      const reader = readableStream.getReader({ mode: "byob" });
+      this.#reader = reader;
+      const callbackFunction = Tasks.createStatic({
+        function: this.#process,
         this: this,
       });
-      this.#outputCallback = new Tasks.Callback(null);
-      this.#endedSignalController = new Tasks.SignalController();
-      this.#progressSignalController = new Tasks.SignalController();
-      // Statistics
-      this.#smoothingFactor = args.smoothingFactor;
-      this.#lastStartTime = performance.now();
-      this.#avgRunTime = 0;
-      this.#avgInterval = 4;
-      // Initialize
-      (async function (that) {
-        that.#state = await that.#source.init();
-        const firstOutput = await that.#source.execute({
-          state: that.#state,
-        });
-        that.#execute(firstOutput);
-      })(this);
+      const callbackController = new Tasks.CallbackController({
+        invoke: callbackFunction,
+      });
+      this.#pushSourceController = new AsyncByteReaderPushSource({
+        callback: callbackController.callback,
+        outputByteRate: outputByteRate,
+      });
+      this.#closedSignalController = new Tasks.SignalController();
+      this.#cancelledSignalController = new Tasks.SignalController();
+      const dispatchClose = Tasks.createStatic({
+        function: this.#dispatchClose,
+        this: this,
+      });
+      reader.closed.then(dispatchClose);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "AsyncPushSourceNode constructor",
+        functionName: "ReadableByteStreamPushSource constructor",
         error: e,
       });
     }
+  }
+  #dispatchClose() {
+    this.#closedSignalController.dispatch();
+    this.#cancelledSignalController.dispatch();
   }
   connectOutput(args) {
     try {
-      const newCallback = (function () {
+      return this.#pushSourceController.connectOutput(args);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "ReadableByteStreamPushSource.connectOutput",
+        error: e,
+      });
+    }
+  }
+  async #process(view) {
+    try {
+      const uint8Array = view.toUint8Array();
+      const { value, done } = await this.#reader.read(uint8Array);
+      if (done) {
+        return null;
+      }
+      return value.byteLength;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "ReadableByteStreamPushSource.process",
+        error: e,
+      });
+    }
+  }
+  get closed() {
+    try {
+      return this.#closedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get ReadableByteStreamPushSource.closed",
+        error: e,
+      });
+    }
+  }
+  get cancelled() {
+    try {
+      return this.#cancelledSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get ReadableByteStreamPushSource.cancelled",
+        error: e,
+      });
+    }
+  }
+};
+
+export class WritableStreamPushSink {
+  #pushCallbackController;
+  #writer;
+  constructor(args) {
+    try {
+      let writableStream = (function () {
         if (Types.isSimpleObject(args)) {
-          if (!(Object.hasOwn(args, "callback"))) {
-            throw "Argument \"callback\" must be provided.";
+          if (Object.hasOwn(args, "writableStream")) {
+            throw "Argument \"writableStream\" must be provided.";
           }
-          return args.sink;
+          writableStream = args.writableStream;
         } else {
-          return args;
+          writableStream = args;
         }
       })();
-      if (!("invoke" in newCallback)) {
-        throw "Callback must have member \"invoke\".";
+      if (!(writableStream instanceof self.WritableStream)) {
+        throw "Argument \"writableStream\" must be of type self.WritableStream.";
       }
-      if (!(Types.isInvocable(newCallback.invoke))) {
-        throw "Callback.invoke must be invocable.";
+      if (writableStream.locked) {
+        throw "Argument \"writableStream\" must be unlocked.";
       }
-      if (!("isRevoked" in newCallback)) {
-        throw "Callback must have member \"isRevoked\".";
-      }
-      if (!(Types.isInvocable(newCallback.isRevoked))) {
-        throw "Callback.isRevoked must be invocable.";
-      }
-      this.#outputCallback = newCallback;
+      this.#writer = writableStream.getWriter();
+      const pushSinkCallbackFunction = Tasks.createStatic({
+        function: this.#writer.write,
+        this: this.#writer,
+      });
+      this.#pushCallbackController = new Tasks.CallbackController({
+        invoke: pushSinkCallbackFunction,
+      });
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "AsyncPushSourceNode.connectOutput",
+        functionName: "WritableStreamPushSink constructor",
         error: e,
       });
     }
   }
-  get endedSignal() {
+  get inputCallback() {
     try {
-      return this.#endedSignalController.signal;
+      return this.#pushCallbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get AsyncPushSourceNode.endedSignal",
+        functionName: "get WritableStreamPushSink.callback",
         error: e,
       });
     }
   }
-  get progressSignal() {
+  disconnectInput() {
     try {
-      return this.#progressSignalController.signal;
+      this.#pushCallbackController.replace(null);
     } catch (e) {
       ErrorLog.rethrow({
-        functionName: "get AsyncPushSourceNode.progressSignal",
+        functionName: "WritableStreamPushSink.disconnectInput",
         error: e,
       });
     }
   }
-  get avgInterval() {
-    try {
-      return this.#avgInterval;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get AsyncPushSourceNode.avgInterval",
-        error: e,
-      });
+};
+
+// From "PushSink" byte callback
+export function createWritableByteStream(callback) {
+  try {
+    const underlyingSink = {
+      start: function (controller) {
+      },
+      write: function (chunk, controller) {
+        const view = callback.allocate(chunk.byteLength);
+        view.set(chunk);
+        callback.invoke(chunk.byteLength);
+      },
+      close: function (controller) {
+      },
+      abort: function (reason) {
+      },
+      mode: "bytes",
+    };
+    const writeQueuingStrategy = {
+      highWaterMark: 1,
     }
+    return new self.WritableStream(underlyingSink, writeQueuingStrategy);
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "createWritableByteStream",
+      error: e,
+    });
   }
-  get avgRunTime() {
-    try {
-      return this.#avgRunTime;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get AsyncPushSourceNode.avgRunTime",
-        error: e,
-      });
-    }
-  }
-  async #execute(outputItem) {
-    try {
-      if (outputItem === null) {
-        this.#endedSignalController.dispatch();
+}
+
+// From "PullSource" callback (not byte callback)
+export function createReadableByteStream(callback) {
+  try {
+    const underlyingSource = {
+      start: function (controller) {
         return;
+      },
+      pull: function (controller) {
+        const item = callback.invoke();
+        controller.enqueue(item);
+      },
+      cancel: function (reason) {
+        return;
+      },
+      mode: "bytes",
+    };
+    const readQueuingStrategy = {
+      highWaterMark: 1,
+      size: function (chunk) {
+        return 1;
       }
-      const start = self.performance.now();
-      const that = this;
-      this.#promise = this.#source.execute({
-        state: this.#state,
-      });
-      self.setTimeout(function () {
-        that.#promise.then(that.#staticExecute);
-      }, this.#setTimeoutValue);
-      this.#outputCallback.invoke(outputItem);
-      const end = self.performance.now();
-      // Statistics
-      ++this.#progressCounter;
-      while (this.#progressCounter >= this.#progressThreshold) {
-        this.#progressSignalController.dispatch();
-        this.#progressCounter -= this.#progressThreshold;
-      }
-      this.#avgInterval *= (1 - this.#smoothingFactor);
-      this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
-      this.#avgRunTime *= (1 - this.#smoothingFactor);
-      this.#avgRunTime += this.#smoothingFactor * (end - start);
-      this.#lastStartTime = start;
-      // Estimate proper interval
-      const estInterval = (this.#avgRunTime / this.#targetUsage);
-      // Adjust setTimeoutValue to attempt to reach this interval
-      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
-      if (this.#setTimeoutValue < 1) {
-        this.#setTimeoutValue = 1;
-      }
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "AsyncPushSourceNode.#execute",
-        error: e,
-      });
-    }
+    };
+    return new self.ReadableStream(underlyingSource, readQueuingStrategy);
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "createReadableByteStream",
+      error: e,
+    });
   }
 }
