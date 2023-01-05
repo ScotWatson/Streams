@@ -48,6 +48,10 @@ export class PushSourceNode {
         }
         return ret;
       })();
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
       this.#source = source;
       this.#state = this.#source.init();
       this.#targetUsage = targetUsage;
@@ -94,14 +98,56 @@ export class PushSourceNode {
       });
     }
   }
+  get endedSignal() {
+    try {
+      return this.#endedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PushSourceNode.endedSignal",
+        error: e,
+      });
+    }
+  }
+  get progressSignal() {
+    try {
+      return this.#progressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PushSourceNode.progressSignal",
+        error: e,
+      });
+    }
+  }
   #execute() {
     try {
       const start = performance.now();
+      if (outputItem === null) {
+        
+      }
+      self.setTimeout(this.#staticExecute, this.#setTimeoutValue);
+      this.#outputCallback.invoke(outputItem);
       const outputItem = this.#source.execute({
         state: this.#state,
       });
-      this.#outputCallback.invoke(outputItem);
       const end = performance.now();
+      // Statistics
+      ++this.#progressCounter;
+      while (this.#progressCounter >= this.#progressThreshold) {
+        this.#progressSignalController.dispatch();
+        this.#progressCounter -= this.#progressThreshold;
+      }
+      this.#avgInterval *= (1 - this.#smoothingFactor);
+      this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
+      this.#avgRunTime *= (1 - this.#smoothingFactor);
+      this.#avgRunTime += this.#smoothingFactor * (end - start);
+      this.#lastStartTime = start;
+      // Estimate proper interval
+      const estInterval = (this.#avgRunTime / this.#targetUsage);
+      // Adjust setTimeoutValue to attempt to reach this interval
+      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
+      if (this.#setTimeoutValue < 1) {
+        this.#setTimeoutValue = 1;
+      }
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PushSourceNode.#execute",
@@ -138,6 +184,26 @@ export class PullSourceNode {
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "get PullSourceNode.outputCallback",
+        error: e,
+      });
+    }
+  }
+  get endedSignal() {
+    try {
+      return this.#endedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PullSourceNode.endedSignal",
+        error: e,
+      });
+    }
+  }
+  get progressSignal() {
+    try {
+      return this.#progressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PullSourceNode.progressSignal",
         error: e,
       });
     }
