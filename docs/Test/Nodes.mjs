@@ -17,6 +17,7 @@ export class PushSourceNode {
   #progressSignalController;
   #progressCounter;
   #progressThreshold;
+  #targetUsage;
   // Statistics
   #smoothingFactor;
   #lastStartTime;
@@ -56,6 +57,7 @@ export class PushSourceNode {
       this.#state = this.#source.init();
       this.#targetUsage = targetUsage;
       this.#smoothingFactor = smoothingFactor;
+      this.#outputCallback = new Tasks.Callback(null);
       this.#endedSignalController = new Tasks.SignalController();
       this.#progressSignalController = new Tasks.SignalController();
       this.#progressCounter = 0;
@@ -121,14 +123,15 @@ export class PushSourceNode {
   #execute() {
     try {
       const start = performance.now();
-      if (outputItem === null) {
-        
-      }
-      self.setTimeout(this.#staticExecute, this.#setTimeoutValue);
-      this.#outputCallback.invoke(outputItem);
       const outputItem = this.#source.execute({
         state: this.#state,
       });
+      if (outputItem === null) {
+        // The end of the stream has been reached, return before calling setTimeout
+        return;
+      }
+      self.setTimeout(this.#staticExecute, this.#setTimeoutValue);
+      this.#outputCallback.invoke(outputItem);
       const end = performance.now();
       // Statistics
       ++this.#progressCounter;
@@ -159,9 +162,15 @@ export class PushSourceNode {
 
 export class PullSourceNode {
   #source;
+  #state;
+  #outputCallbackController;
+  #endedSignalController;
+  #progressSignalController;
+  #progressCounter;
+  #progressThreshold;
   constructor(args) {
     try {
-      const { source } = (function () {
+      const { source, progressThreshold } = (function () {
         let ret;
         if (!(Types.isSimpleObject(args))) {
           throw "Argument must be a simple object.";
@@ -170,8 +179,23 @@ export class PullSourceNode {
           throw "Argument \"source\" must be provided.";
         }
         ret.source = args.source;
+        if ("progressThreshold" in args) {
+          ret.progressThreshold = args.progressThreshold;
+        } else {
+          ret.progressThreshold = 1;
+        }
+        return ret;
       })();
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
       this.#source = source;
+      this.#state = this.#source.init();
+      this.#outputCallbackController = new Tasks.UniqueCallbackController(this.#staticExecute);
+      this.#endedSignalController = new Tasks.SignalController();
+      this.#progressSignalController = new Tasks.SignalController();
+      this.#progressCounter = 0;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PullSourceNode constructor",
@@ -181,6 +205,7 @@ export class PullSourceNode {
   }
   get outputCallback() {
     try {
+      return this.#outputCallbackController.callback;
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "get PullSourceNode.outputCallback",
@@ -208,17 +233,290 @@ export class PullSourceNode {
       });
     }
   }
+  #execute() {
+    try {
+      const outputItem = this.#source.execute({
+        state: this.#state,
+      });
+      if (outputItem === null) {
+        this.#endedSignalController.dispatch();
+      }
+      // Statistics
+      ++this.#progressCounter;
+      while (this.#progressCounter >= this.#progressThreshold) {
+        this.#progressSignalController.dispatch();
+        this.#progressCounter -= this.#progressThreshold;
+      }
+      return outputItem;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PullSourceNode.#execute",
+        error: e,
+      });
+    }
+  }
 }
 
 export class BytePushSourceNode {
+  #source;
+  #state;
+  #outputCallback;
+  #endedSignalController;
+  #progressSignalController;
+  #progressCounter;
+  #progressThreshold;
+  #targetUsage;
+  // Statistics
+  #smoothingFactor;
+  #lastStartTime;
+  #avgRunTime;
+  #avgInterval;
   constructor(args) {
-    
+    try {
+      const { source, smoothingFactor, targetUsage, progressThreshold, outputByteLength } = (function () {
+        let ret;
+        if (!(Types.isSimpleObject(args))) {
+          throw "Argument must be a simple object.";
+        }
+        if (!("source" in args)) {
+          throw "Argument \"source\" must be provided.";
+        }
+        ret.source = args.source;
+        if (!("smoothingFactor" in args)) {
+          throw "Argument \"smoothingFactor\" must be provided.";
+        }
+        ret.smoothingFactor = args.smoothingFactor;
+        if (!("targetUsage" in args)) {
+          throw "Argument \"targetUsage\" must be provided.";
+        }
+        ret.targetUsage = args.targetUsage;
+        if ("progressThreshold" in args) {
+          ret.progressThreshold = args.progressThreshold;
+        } else {
+          ret.progressThreshold = 1;
+        }
+        if (!("outputByteLength" in args)) {
+          throw "Argument \"outputByteLength\" must be provided.";
+        }
+        ret.outputByteLength = args.outputByteLength;
+        return ret;
+      })();
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#source = source;
+      this.#state = this.#source.init();
+      this.#targetUsage = targetUsage;
+      this.#smoothingFactor = smoothingFactor;
+      this.#outputByteLength = outputByteLength;
+      this.#outputCallback = new Tasks.ByteCallback(null);
+      this.#endedSignalController = new Tasks.SignalController();
+      this.#progressSignalController = new Tasks.SignalController();
+      this.#progressCounter = 0;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePushSourceNode constructor",
+        error: e,
+      });
+    }
+  }
+  connectOutput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.callback;
+        } else {
+          return args;
+        }
+      })();
+      if (!("allocate" in newCallback)) {
+        throw "Callback must have member \"allocate\".";
+      }
+      if (!(Types.isInvocable(newCallback.allocate))) {
+        throw "Callback.allocate must be invocable.";
+      }
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePushSourceNode.connectOutput",
+        error: e,
+      });
+    }
+  }
+  get endedSignal() {
+    try {
+      return this.#endedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get BytePushSourceNode.endedSignal",
+        error: e,
+      });
+    }
+  }
+  get progressSignal() {
+    try {
+      return this.#progressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get BytePushSourceNode.progressSignal",
+        error: e,
+      });
+    }
+  }
+  #execute() {
+    try {
+      const start = performance.now();
+      const outputView = this.#outputCallback.allocate(this.#outputByteLength);
+      const byteLength = this.#source.execute({
+        output: outputView,
+        state: this.#state,
+      });
+      if (byteLength === 0) {
+        // The end of the stream has been reached, return before calling setTimeout
+        this.#outputCallback.invoke(0);
+        return;
+      }
+      self.setTimeout(this.#staticExecute, this.#setTimeoutValue);
+      this.#outputCallback.invoke(byteLength);
+      const end = performance.now();
+      // Statistics
+      ++this.#progressCounter;
+      while (this.#progressCounter >= this.#progressThreshold) {
+        this.#progressSignalController.dispatch();
+        this.#progressCounter -= this.#progressThreshold;
+      }
+      this.#avgInterval *= (1 - this.#smoothingFactor);
+      this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
+      this.#avgRunTime *= (1 - this.#smoothingFactor);
+      this.#avgRunTime += this.#smoothingFactor * (end - start);
+      this.#lastStartTime = start;
+      // Estimate proper interval
+      const estInterval = (this.#avgRunTime / this.#targetUsage);
+      // Adjust setTimeoutValue to attempt to reach this interval
+      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
+      if (this.#setTimeoutValue < 1) {
+        this.#setTimeoutValue = 1;
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePushSourceNode.#execute",
+        error: e,
+      });
+    }
   }
 }
 
 export class BytePullSourceNode {
+  #source;
+  #state;
+  #outputCallbackController;
+  #endedSignalController;
+  #progressSignalController;
+  #progressCounter;
+  #progressThreshold;
   constructor(args) {
-    
+    try {
+      const { source, progressThreshold } = (function () {
+        let ret;
+        if (!(Types.isSimpleObject(args))) {
+          throw "Argument must be a simple object.";
+        }
+        if (!("source" in args)) {
+          throw "Argument \"source\" must be provided.";
+        }
+        ret.source = args.source;
+        if ("progressThreshold" in args) {
+          ret.progressThreshold = args.progressThreshold;
+        } else {
+          ret.progressThreshold = 1;
+        }
+        return ret;
+      })();
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#source = source;
+      this.#state = this.#source.init();
+      this.#outputCallbackController = new Tasks.UniqueCallbackController(this.#staticExecute);
+      this.#endedSignalController = new Tasks.SignalController();
+      this.#progressSignalController = new Tasks.SignalController();
+      this.#progressCounter = 0;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePullSourceNode constructor",
+        error: e,
+      });
+    }
+  }
+  get outputCallback() {
+    try {
+      return this.#outputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get BytePullSourceNode.outputCallback",
+        error: e,
+      });
+    }
+  }
+  get endedSignal() {
+    try {
+      return this.#endedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get BytePullSourceNode.endedSignal",
+        error: e,
+      });
+    }
+  }
+  get progressSignal() {
+    try {
+      return this.#progressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get BytePullSourceNode.progressSignal",
+        error: e,
+      });
+    }
+  }
+  #execute(outputView) {
+    try {
+      const byteLength = this.#source.execute({
+        output: outputView,
+        state: this.#state,
+      });
+      if (byteLength === 0) {
+        this.#endedSignalController.dispatch();
+      }
+      // Statistics
+      ++this.#progressCounter;
+      while (this.#progressCounter >= this.#progressThreshold) {
+        this.#progressSignalController.dispatch();
+        this.#progressCounter -= this.#progressThreshold;
+      }
+      return byteLength;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get BytePullSourceNode.#execute",
+        error: e,
+      });
+    }
   }
 }
 
