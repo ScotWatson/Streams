@@ -271,6 +271,7 @@ export class BytePushSourceNode {
   #targetUsage;
   #staticExecute;
   #setTimeoutValue;
+  #outputByteLength;
   // Statistics
   #smoothingFactor;
   #lastStartTime;
