@@ -18,6 +18,7 @@ export class PushSourceNode {
   #progressCounter;
   #progressThreshold;
   #targetUsage;
+  #staticExecute;
   // Statistics
   #smoothingFactor;
   #lastStartTime;
@@ -168,6 +169,7 @@ export class PullSourceNode {
   #progressSignalController;
   #progressCounter;
   #progressThreshold;
+  #staticExecute;
   constructor(args) {
     try {
       const { source, progressThreshold } = (function () {
@@ -266,6 +268,7 @@ export class BytePushSourceNode {
   #progressCounter;
   #progressThreshold;
   #targetUsage;
+  #staticExecute;
   // Statistics
   #smoothingFactor;
   #lastStartTime;
@@ -430,6 +433,7 @@ export class BytePullSourceNode {
   #progressSignalController;
   #progressCounter;
   #progressThreshold;
+  #staticExecute;
   constructor(args) {
     try {
       const { source, progressThreshold } = (function () {
