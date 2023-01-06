@@ -19,6 +19,7 @@ export class PushSourceNode {
   #progressThreshold;
   #targetUsage;
   #staticExecute;
+  #setTimeoutValue;
   // Statistics
   #smoothingFactor;
   #lastStartTime;
@@ -269,6 +270,7 @@ export class BytePushSourceNode {
   #progressThreshold;
   #targetUsage;
   #staticExecute;
+  #setTimeoutValue;
   // Statistics
   #smoothingFactor;
   #lastStartTime;
