@@ -2580,26 +2580,774 @@ export class LazyByteTransformNode {
 }
 
 export class AsyncTransformNode {
+  #transform;
+  #state;
+  #inputCallback;
+  #outputCallback;
+  #inputProgressSignalController;
+  #outputProgressSignalController;
+  #inputProgressThreshold;
+  #outputProgressThreshold;
+  #inputProgressCounter;
+  #outputProgressCounter;
+  #targetUsage;
+  #staticExecute;
+  #setTimeoutValue;
+  // Statistics
+  #smoothingFactor;
+  #lastStartTime;
+  #avgRunTime;
+  #avgInterval;
   constructor(args) {
-    
+    try {
+      this.#transform = args.transform;
+      this.#inputProgressThreshold = args.inputProgressThreshold;
+      this.#outputProgressThreshold = args.outputProgressThreshold;
+      this.#smoothingFactor = args.smoothingFactor;
+      this.#targetUsage = args.targetUsage;
+      this.#inputProgressCounter = 0;
+      this.#outputProgressCounter = 0;
+      this.#state = this.#transform.init();
+      this.#inputCallback = new Tasks.Callback(null);
+      this.#outputCallback = new Tasks.Callback(null);
+      this.#inputProgressSignalController = new Tasks.SignalController();
+      this.#outputProgressSignalController = new Tasks.SignalController();
+      this.#staticExecute = Tasks.createStatic({
+        function: this.execute,
+        this: this,
+      });
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncTransformNode constructor",
+        error: e,
+      });
+    }
+  }
+  connectInput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#inputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncTransformNode.connectInput",
+        error: e,
+      });
+    }
+  }
+  connectOutput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncTransformNode.connectOutput",
+        error: e,
+      });
+    }
+  }
+  get inputProgressSignal() {
+    try {
+      return this.#inputProgressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncTransformNode.inputProgressSignal",
+        error: e,
+      });
+    }
+  }
+  get outputProgressSignal() {
+    try {
+      return this.#outputProgressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncTransformNode.outputProgressSignal",
+        error: e,
+      });
+    }
+  }
+  #execute(outputItem) {
+    try {
+      const start = performance.now();
+      if (outputItem === null) {
+        const inputItem = this.#inputCallback.invoke();
+        const promise = this.#transform.execute({
+          input: inputItem,
+          state: this.#state,
+        });
+        self.setTimeout(function () {
+          promise.then(this.#staticExecute);
+        }, this.#setTimeoutValue);
+        ++this.#inputProgressCounter;
+        while (this.#inputProgressCounter >= this.#inputProgressThreshold) {
+          this.#inputProgressSignalController.dispatch();
+          this.#inputProgressCounter -= this.#inputProgressThreshold;
+        }
+      } else {
+        const promise = this.#transform.execute({
+          input: null,
+          state: this.#state,
+        });
+        self.setTimeout(function () {
+          promise.then(this.#staticExecute);
+        }, this.#setTimeoutValue);
+        this.#outputCallback.invoke(outputItem);
+        ++this.#outputProgressCounter;
+        while (this.#outputProgressCounter >= this.#outputProgressThreshold) {
+          this.#outputProgressSignalController.dispatch();
+          this.#outputProgressCounter -= this.#outputProgressThreshold;
+        }
+      }
+      const end = performance.now();
+      // Statistics
+      this.#avgInterval *= (1 - this.#smoothingFactor);
+      this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
+      this.#avgRunTime *= (1 - this.#smoothingFactor);
+      this.#avgRunTime += this.#smoothingFactor * (end - start);
+      this.#lastStartTime = start;
+      // Estimate proper interval
+      const estInterval = (this.#avgRunTime / this.#targetUsage);
+      // Adjust setTimeoutValue to attempt to reach this interval
+      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
+      if (this.#setTimeoutValue < 1) {
+        this.#setTimeoutValue = 1;
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncTransformNode.#execute",
+        error: e,
+      });
+    }
   }
 }
 
 export class AsyncTransformNodeToByte {
+  #transform;
+  #state;
+  #inputCallback;
+  #outputCallback;
+  #inputProgressSignalController;
+  #outputProgressSignalController;
+  #inputProgressThreshold;
+  #outputProgressThreshold;
+  #inputProgressCounter;
+  #outputProgressCounter;
+  #targetUsage;
+  #outputByteLength;
+  #staticExecute;
+  #setTimeoutValue;
+  // Statistics
+  #smoothingFactor;
+  #lastStartTime;
+  #avgRunTime;
+  #avgInterval;
   constructor(args) {
-    
+    try {
+      this.#transform = args.transform;
+      this.#inputProgressThreshold = args.inputProgressThreshold;
+      this.#outputProgressThreshold = args.outputProgressThreshold;
+      this.#smoothingFactor = args.smoothingFactor;
+      this.#targetUsage = args.targetUsage;
+      this.#outputByteLength = args.outputByteLength;
+      this.#inputProgressCounter = 0;
+      this.#outputProgressCounter = 0;
+      this.#state = this.#transform.init();
+      this.#inputCallback = new Tasks.Callback(null);
+      this.#outputCallback = new Tasks.Callback(null);
+      this.#inputProgressSignalController = new Tasks.SignalController();
+      this.#outputProgressSignalController = new Tasks.SignalController();
+      this.#staticExecute = Tasks.createStatic({
+        function: this.execute,
+        this: this,
+      });
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncTransformNodeToByte constructor",
+        error: e,
+      });
+    }
+  }
+  connectInput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#inputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncTransformNodeToByte.connectInput",
+        error: e,
+      });
+    }
+  }
+  connectOutput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("allocate" in newCallback)) {
+        throw "Callback must have member \"allocate\".";
+      }
+      if (!(Types.isInvocable(newCallback.allocate))) {
+        throw "Callback.allocate must be invocable.";
+      }
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncTransformNodeToByte.connectOutput",
+        error: e,
+      });
+    }
+  }
+  get inputProgressSignal() {
+    try {
+      return this.#inputProgressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncTransformNodeToByte.inputProgressSignal",
+        error: e,
+      });
+    }
+  }
+  get outputProgressSignal() {
+    try {
+      return this.#outputProgressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncTransformNodeToByte.outputProgressSignal",
+        error: e,
+      });
+    }
+  }
+  #execute(outputByteLength) {
+    try {
+      const start = performance.now();
+      if (outputByteLength === 0) {
+        const inputItem = this.#inputCallback.invoke();
+        const outputView = this.#outputCallback.allocate(this.#outputByteLength);
+        const promise = this.#transform.execute({
+          input: inputItem,
+          output: outputView,
+          state: this.#state,
+        });
+        self.setTimeout(function () {
+          promise.then(this.#staticExecute);
+        }, this.#setTimeoutValue);
+        ++this.#inputProgressCounter;
+        while (this.#inputProgressCounter >= this.#inputProgressThreshold) {
+          this.#inputProgressSignalController.dispatch();
+          this.#inputProgressCounter -= this.#inputProgressThreshold;
+        }
+      } else {
+        const outputView = this.#outputCallback.allocate(this.#outputByteLength);
+        const promise = this.#transform.execute({
+          input: null,
+          output: outputView,
+          state: this.#state,
+        });
+        self.setTimeout(function () {
+          promise.then(this.#staticExecute);
+        }, this.#setTimeoutValue);
+        this.#outputCallback.invoke(outputByteLength);
+        this.#outputProgressCounter += outputByteLength;
+        while (this.#outputProgressCounter >= this.#outputProgressThreshold) {
+          this.#outputProgressSignalController.dispatch();
+          this.#outputProgressCounter -= this.#outputProgressThreshold;
+        }
+      }
+      const end = performance.now();
+      // Statistics
+      this.#avgInterval *= (1 - this.#smoothingFactor);
+      this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
+      this.#avgRunTime *= (1 - this.#smoothingFactor);
+      this.#avgRunTime += this.#smoothingFactor * (end - start);
+      this.#lastStartTime = start;
+      // Estimate proper interval
+      const estInterval = (this.#avgRunTime / this.#targetUsage);
+      // Adjust setTimeoutValue to attempt to reach this interval
+      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
+      if (this.#setTimeoutValue < 1) {
+        this.#setTimeoutValue = 1;
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncTransformNodeToByte.#execute",
+        error: e,
+      });
+    }
   }
 }
 
 export class AsyncTransformNodeFromByte {
+  #transform;
+  #state;
+  #inputCallback;
+  #outputCallback;
+  #inputProgressSignalController;
+  #outputProgressSignalController;
+  #inputProgressThreshold;
+  #outputProgressThreshold;
+  #inputProgressCounter;
+  #outputProgressCounter;
+  #targetUsage;
+  #inputByteLength;
+  #staticExecute;
+  #setTimeoutValue;
+  // Statistics
+  #smoothingFactor;
+  #lastStartTime;
+  #avgRunTime;
+  #avgInterval;
   constructor(args) {
-    
+    try {
+      this.#transform = args.transform;
+      this.#inputProgressThreshold = args.inputProgressThreshold;
+      this.#outputProgressThreshold = args.outputProgressThreshold;
+      this.#smoothingFactor = args.smoothingFactor;
+      this.#targetUsage = args.targetUsage;
+      this.#inputByteLength = args.inputByteLength;
+      this.#inputProgressCounter = 0;
+      this.#outputProgressCounter = 0;
+      this.#state = this.#transform.init();
+      this.#inputCallback = new Tasks.Callback(null);
+      this.#outputCallback = new Tasks.Callback(null);
+      this.#inputProgressSignalController = new Tasks.SignalController();
+      this.#outputProgressSignalController = new Tasks.SignalController();
+      this.#staticExecute = Tasks.createStatic({
+        function: this.execute,
+        this: this,
+      });
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncTransformNodeFromByte constructor",
+        error: e,
+      });
+    }
+  }
+  connectInput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#inputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncTransformNodeFromByte.connectInput",
+        error: e,
+      });
+    }
+  }
+  connectOutput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncTransformNodeFromByte.connectOutput",
+        error: e,
+      });
+    }
+  }
+  get inputProgressSignal() {
+    try {
+      return this.#inputProgressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncTransformNodeFromByte.inputProgressSignal",
+        error: e,
+      });
+    }
+  }
+  get outputProgressSignal() {
+    try {
+      return this.#outputProgressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncTransformNodeFromByte.outputProgressSignal",
+        error: e,
+      });
+    }
+  }
+  #execute(outputItem) {
+    try {
+      const start = performance.now();
+      if (outputItem === null) {
+        const inputBlock = new Memory.Block({
+          byteLength: this.#inputByteLength,
+        });
+        const inputView = new Memory.View({
+          memoryBlock: inputBlock,
+        });
+        this.#inputCallback.invoke(inputView);
+        const promise = this.#transform.execute({
+          input: inputView,
+          state: this.#state,
+        });
+        self.setTimeout(function () {
+          promise.then(this.#staticExecute);
+        }, this.#setTimeoutValue);
+        this.#inputProgressCounter += inputView.byteLength;
+        while (this.#inputProgressCounter >= this.#inputProgressThreshold) {
+          this.#inputProgressSignalController.dispatch();
+          this.#inputProgressCounter -= this.#inputProgressThreshold;
+        }
+      } else {
+        const promise = this.#transform.execute({
+          input: null,
+          state: this.#state,
+        });
+        self.setTimeout(function () {
+          promise.then(this.#staticExecute);
+        }, this.#setTimeoutValue);
+        this.#outputCallback.invoke(outputItem);
+        ++this.#outputProgressCounter;
+        while (this.#outputProgressCounter >= this.#outputProgressThreshold) {
+          this.#outputProgressSignalController.dispatch();
+          this.#outputProgressCounter -= this.#outputProgressThreshold;
+        }
+      }
+      const end = performance.now();
+      // Statistics
+      this.#avgInterval *= (1 - this.#smoothingFactor);
+      this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
+      this.#avgRunTime *= (1 - this.#smoothingFactor);
+      this.#avgRunTime += this.#smoothingFactor * (end - start);
+      this.#lastStartTime = start;
+      // Estimate proper interval
+      const estInterval = (this.#avgRunTime / this.#targetUsage);
+      // Adjust setTimeoutValue to attempt to reach this interval
+      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
+      if (this.#setTimeoutValue < 1) {
+        this.#setTimeoutValue = 1;
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncTransformNodeFromByte.#execute",
+        error: e,
+      });
+    }
   }
 }
 
 export class AsyncByteTransformNode {
+  #transform;
+  #state;
+  #inputCallback;
+  #outputCallback;
+  #inputProgressSignalController;
+  #outputProgressSignalController;
+  #inputProgressThreshold;
+  #outputProgressThreshold;
+  #inputProgressCounter;
+  #outputProgressCounter;
+  #targetUsage;
+  #inputByteLength;
+  #outputByteLength;
+  #staticExecute;
+  #setTimeoutValue;
+  // Statistics
+  #smoothingFactor;
+  #lastStartTime;
+  #avgRunTime;
+  #avgInterval;
   constructor(args) {
-    
+    try {
+      this.#transform = args.transform;
+      this.#inputProgressThreshold = args.inputProgressThreshold;
+      this.#outputProgressThreshold = args.outputProgressThreshold;
+      this.#smoothingFactor = args.smoothingFactor;
+      this.#targetUsage = args.targetUsage;
+      this.#inputByteLength = args.inputByteLength;
+      this.#outputByteLength = args.outputByteLength;
+      this.#inputProgressCounter = 0;
+      this.#outputProgressCounter = 0;
+      this.#state = this.#transform.init();
+      this.#inputCallback = new Tasks.Callback(null);
+      this.#outputCallback = new Tasks.Callback(null);
+      this.#inputProgressSignalController = new Tasks.SignalController();
+      this.#outputProgressSignalController = new Tasks.SignalController();
+      this.#staticExecute = Tasks.createStatic({
+        function: this.execute,
+        this: this,
+      });
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncByteTransformNode constructor",
+        error: e,
+      });
+    }
+  }
+  connectInput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#inputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncByteTransformNode.connectInput",
+        error: e,
+      });
+    }
+  }
+  connectOutput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("allocate" in newCallback)) {
+        throw "Callback must have member \"allocate\".";
+      }
+      if (!(Types.isInvocable(newCallback.allocate))) {
+        throw "Callback.allocate must be invocable.";
+      }
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#outputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncByteTransformNode.connectOutput",
+        error: e,
+      });
+    }
+  }
+  get inputProgressSignal() {
+    try {
+      return this.#inputProgressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncByteTransformNode.inputProgressSignal",
+        error: e,
+      });
+    }
+  }
+  get outputProgressSignal() {
+    try {
+      return this.#outputProgressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncByteTransformNode.outputProgressSignal",
+        error: e,
+      });
+    }
+  }
+  #execute(outputByteLength) {
+    try {
+      const start = performance.now();
+      if (outputByteLength === 0) {
+        const inputBlock = new Memory.Block({
+          byteLength: this.#inputByteLength,
+        });
+        const inputView = new Memory.View({
+          memoryBlock: inputBlock,
+        });
+        this.#inputCallback.invoke(inputView);
+        const outputView = this.#outputCallback.allocate(this.#outputByteLength);
+        const promise = this.#transform.execute({
+          input: inputView,
+          output: outputView,
+          state: this.#state,
+        });
+        self.setTimeout(function () {
+          promise.then(this.#staticExecute);
+        }, this.#setTimeoutValue);
+        ++this.#inputProgressCounter;
+        while (this.#inputProgressCounter >= this.#inputProgressThreshold) {
+          this.#inputProgressSignalController.dispatch();
+          this.#inputProgressCounter -= this.#inputProgressThreshold;
+        }
+      } else {
+        const outputView = this.#outputCallback.allocate(this.#outputByteLength);
+        const promise = this.#transform.execute({
+          input: null,
+          output: outputView,
+          state: this.#state,
+        });
+        self.setTimeout(function () {
+          promise.then(this.#staticExecute);
+        }, this.#setTimeoutValue);
+        this.#outputCallback.invoke(outputByteLength);
+        this.#outputProgressCounter += outputByteLength;
+        while (this.#outputProgressCounter >= this.#outputProgressThreshold) {
+          this.#outputProgressSignalController.dispatch();
+          this.#outputProgressCounter -= this.#outputProgressThreshold;
+        }
+      }
+      const end = performance.now();
+      // Statistics
+      this.#avgInterval *= (1 - this.#smoothingFactor);
+      this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
+      this.#avgRunTime *= (1 - this.#smoothingFactor);
+      this.#avgRunTime += this.#smoothingFactor * (end - start);
+      this.#lastStartTime = start;
+      // Estimate proper interval
+      const estInterval = (this.#avgRunTime / this.#targetUsage);
+      // Adjust setTimeoutValue to attempt to reach this interval
+      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
+      if (this.#setTimeoutValue < 1) {
+        this.#setTimeoutValue = 1;
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncByteTransformNode.#execute",
+        error: e,
+      });
+    }
   }
 }
 
