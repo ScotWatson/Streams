@@ -4084,45 +4084,25 @@ export class AsyncBytePullSinkNode {
 
 
 
-
-// From "PushSink" callback
-export function createWritableStream(callback) {
+// From 
+export function createReadableStream(args) {
   try {
-    const underlyingSink = {
-      start: function (controller) {
-      },
-      write: function (chunk, controller) {
-        callback.invoke(chunk);
-      },
-      close: function (controller) {
-      },
-      abort: function (reason) {
-      },
-    };
-    const writeQueuingStrategy = {
-      highWaterMark: 1,
-    }
-    return new self.WritableStream(underlyingSink, writeQueuingStrategy);
-  } catch (e) {
-    ErrorLog.rethrow({
-      functionName: "createWritableStream",
-      error: e,
-    });
-  }
-}
-
-// From "PullSource" callback
-export function createReadableStream(callback) {
-  try {
+    const source = args.source;
+    let state;
     const underlyingSource = {
-      start: function (controller) {
-        return;
+      start: async function (controller) {
+        state = await source.init();
       },
-      pull: function (controller) {
-        const item = callback.invoke();
+      pull: async function (controller) {
+        const item = await source.execute({
+          state: state,
+        });
         controller.enqueue(item);
       },
-      cancel: function (reason) {
+      cancel: async function (reason) {
+        const item = await source.flush({
+          state: state,
+        });
         return;
       },
     };
@@ -4136,6 +4116,40 @@ export function createReadableStream(callback) {
   } catch (e) {
     ErrorLog.rethrow({
       functionName: "createReadableStream",
+      error: e,
+    });
+  }
+}
+
+export function createWritableStream(args) {
+  try {
+    const sink = args.sink;
+    let state;
+    const underlyingSink = {
+      start: function (controller) {
+        state = sink.init();
+      },
+      write: function (chunk, controller) {
+        sink.execute({
+          input: chunk,
+          state: state,
+        });
+      },
+      close: function (controller) {
+        sink.execute({
+          state: state,
+        });
+      },
+      abort: function (reason) {
+      },
+    };
+    const writeQueuingStrategy = {
+      highWaterMark: 1,
+    }
+    return new self.WritableStream(underlyingSink, writeQueuingStrategy);
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "createWritableStream",
       error: e,
     });
   }
