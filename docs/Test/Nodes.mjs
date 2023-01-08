@@ -3352,38 +3352,724 @@ export class AsyncByteTransformNode {
 }
 
 export class PushSinkNode {
+  #sink;
+  #state;
+  #staticExecute;
+  #inputCallbackController;
+  #flushedSignalController;
   constructor(args) {
-    
+    try {
+      this.#sink = args.#sink;
+      this.#state = this.#sink.init();
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#inputCallbackController = new Tasks.UniqueCallbackController(this.#staticExecute);
+      this.#flushedSignalController = new Tasks.SignalController();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PushSinkNode constructor",
+        error: e,
+      });
+    }
+  }
+  get inputCallback() {
+    try {
+      return this.#inputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PushSinkNode.inputCallback",
+        error: e,
+      });
+    }
+  }
+  get flushedSignal() {
+    try {
+      return this.#flushedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PushSinkNode.flushedSignal",
+        error: e,
+      });
+    }
+  }
+  flush() {
+    try {
+      this.#sink.flush({
+        state: this.#state;
+      });
+      this.#flushedSignalController.dispatch();
+      this.#state = this.#sink.init();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PushSinkNode.flush",
+        error: e,
+      });
+    }
+  }
+  #execute(inputItem) {
+    try {
+      this.#sink.execute({
+        input: inputItem,
+        state: this.#state;
+      });
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PushSinkNode.#execute",
+        error: e,
+      });
+    }
   }
 }
 
 export class PullSinkNode {
+  #sink;
+  #state;
+  #inputCallback;
+  #flushedSignalController;
+  #inputProgressSignalController;
+  #inputProgressThreshold;
+  #inputProgressCounter;
+  #targetUsage;
+  #inputByteLength;
+  #staticExecute;
+  #setTimeoutValue;
+  // Statistics
+  #smoothingFactor;
+  #lastStartTime;
+  #avgRunTime;
+  #avgInterval;
   constructor(args) {
-    
+    try {
+      this.#sink = args.#sink;
+      this.#state = this.#sink.init();
+      this.#smoothingFactor = args.smoothingFactor;
+      this.#targetUsage = args.targetUsage;
+      this.#inputByteLength = args.inputByteLength;
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#setTimeoutValue = 4;
+      this.#inputProgressSignalController = new Tasks.SignalController();
+      this.#lastStartTime = performance.now();
+      self.setTimeout(this.#staticExecute, this.#setTimeoutValue);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PullSinkNode constructor",
+        error: e,
+      });
+    }
+  }
+  connectInput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#inputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PullSinkNode.connectInput",
+        error: e,
+      });
+    }
+  }
+  get inputProgressSignal() {
+    try {
+      this.#inputProgressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PullSinkNode.inputProgressSignal",
+        error: e,
+      });
+    }
+  }
+  get flushedSignal() {
+    try {
+      this.#flushedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get PullSinkNode.flushedSignal",
+        error: e,
+      });
+    }
+  }
+  flush() {
+    try {
+      this.#sink.flush({
+        state: this.#state,
+      });
+      this.#flushedSignalController.dispatch();
+      this.#state = this.#sink.init();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PullSinkNode.flush",
+        error: e,
+      });
+    }
+  }
+  #execute() {
+    try {
+      const start = performance.now();
+      const inputItem = this.#inputCallback.invoke();
+      ++this.#inputProgressCounter;
+      if (this.#inputProgressCounter >= this.#inputProgressThreshold) {
+        this.#inputProgressSignalController.dispatch();
+        this.#inputProgressCounter -= this.#inputProgressThreshold;
+      }
+      this.#sink.execute({
+        input: inputItem,
+        state: this.#state,
+      });
+      self.setTimeout(this.#staticExecute, this.#setTimeoutValue);
+      const end = performance.now();
+      // Statistics
+      this.#avgInterval *= (1 - this.#smoothingFactor);
+      this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
+      this.#avgRunTime *= (1 - this.#smoothingFactor);
+      this.#avgRunTime += this.#smoothingFactor * (end - start);
+      this.#lastStartTime = start;
+      // Estimate proper interval
+      const estInterval = (this.#avgRunTime / this.#targetUsage);
+      // Adjust setTimeoutValue to attempt to reach this interval
+      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
+      if (this.#setTimeoutValue < 1) {
+        this.#setTimeoutValue = 1;
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PullSinkNode.#execute",
+        error: e,
+      });
+    }
   }
 }
 
 export class BytePushSinkNode {
+  #sink;
+  #state;
+  #staticExecute;
+  #inputCallbackController;
+  #flushedSignalController;
   constructor(args) {
-    
+    try {
+      this.#sink = args.#sink;
+      this.#state = this.#sink.init();
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#inputCallbackController = new Tasks.UniqueCallbackController(this.#staticExecute);
+      this.#flushedSignalController = new Tasks.SignalController();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePushSinkNode constructor",
+        error: e,
+      });
+    }
+  }
+  get inputCallback() {
+    try {
+      return this.#inputCallbackController.callback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get BytePushSinkNode.inputCallback",
+        error: e,
+      });
+    }
+  }
+  get flushedSignal() {
+    try {
+      return this.#flushedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get BytePushSinkNode.flushedSignal",
+        error: e,
+      });
+    }
+  }
+  flush() {
+    try {
+      this.#sink.flush({
+        state: this.#state;
+      });
+      this.#flushedSignalController.dispatch();
+      this.#state = this.#sink.init();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePushSinkNode.flush",
+        error: e,
+      });
+    }
+  }
+  #execute(inputView) {
+    try {
+      this.#sink.execute({
+        input: inputView,
+        state: this.#state;
+      });
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePushSinkNode.#execute",
+        error: e,
+      });
+    }
   }
 }
 
 export class BytePullSinkNode {
+  #sink;
+  #state;
+  #inputCallback;
+  #flushedSignalController;
+  #inputProgressSignalController;
+  #inputProgressThreshold;
+  #inputProgressCounter;
+  #targetUsage;
+  #inputByteLength;
+  #staticExecute;
+  #setTimeoutValue;
+  // Statistics
+  #smoothingFactor;
+  #lastStartTime;
+  #avgRunTime;
+  #avgInterval;
   constructor(args) {
-    
+    try {
+      this.#sink = args.#sink;
+      this.#state = this.#sink.init();
+      this.#smoothingFactor = args.smoothingFactor;
+      this.#targetUsage = args.targetUsage;
+      this.#inputByteLength = args.inputByteLength;
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#setTimeoutValue = 4;
+      this.#inputProgressSignalController = new Tasks.SignalController();
+      this.#lastStartTime = performance.now();
+      self.setTimeout(this.#staticExecute, this.#setTimeoutValue);
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePullSinkNode constructor",
+        error: e,
+      });
+    }
+  }
+  connectInput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#inputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePullSinkNode.connectInput",
+        error: e,
+      });
+    }
+  }
+  get inputProgressSignal() {
+    try {
+      this.#inputProgressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get BytePullSinkNode.inputProgressSignal",
+        error: e,
+      });
+    }
+  }
+  get flushedSignal() {
+    try {
+      this.#flushedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get BytePullSinkNode.flushedSignal",
+        error: e,
+      });
+    }
+  }
+  flush() {
+    try {
+      this.#sink.flush({
+        state: this.#state,
+      });
+      this.#flushedSignalController.dispatch();
+      this.#state = this.#sink.init();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePullSinkNode.flush",
+        error: e,
+      });
+    }
+  }
+  #execute() {
+    try {
+      const start = performance.now();
+      const inputBlock = new Memory.Block({
+        byteLength: this.#inputByteLength,
+      });
+      const inputView = new Memory.View({
+        memoryBlock: inputBlock,
+      });
+      this.#inputCallback.invoke(inputView);
+      ++this.#inputProgressCounter;
+      if (this.#inputProgressCounter >= this.#inputProgressThreshold) {
+        this.#inputProgressSignalController.dispatch();
+        this.#inputProgressCounter -= this.#inputProgressThreshold;
+      }
+      this.#sink.execute({
+        input: inputView,
+        state: this.#state,
+      });
+      self.setTimeout(this.#staticExecute, this.#setTimeoutValue);
+      const end = performance.now();
+      // Statistics
+      this.#avgInterval *= (1 - this.#smoothingFactor);
+      this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
+      this.#avgRunTime *= (1 - this.#smoothingFactor);
+      this.#avgRunTime += this.#smoothingFactor * (end - start);
+      this.#lastStartTime = start;
+      // Estimate proper interval
+      const estInterval = (this.#avgRunTime / this.#targetUsage);
+      // Adjust setTimeoutValue to attempt to reach this interval
+      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
+      if (this.#setTimeoutValue < 1) {
+        this.#setTimeoutValue = 1;
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "BytePullSinkNode.#execute",
+        error: e,
+      });
+    }
   }
 }
 
 export class AsyncPullSinkNode {
+  #sink;
+  #state;
+  #inputCallback;
+  #flushedSignalController;
+  #inputProgressSignalController;
+  #inputProgressThreshold;
+  #inputProgressCounter;
+  #targetUsage;
+  #staticExecute;
+  #setTimeoutValue;
+  // Statistics
+  #smoothingFactor;
+  #lastStartTime;
+  #avgRunTime;
+  #avgInterval;
   constructor(args) {
-    
+    try {
+      this.#sink = args.sink;
+      this.#state = this.#sink.init();
+      this.#flushedSignalController = new Tasks.SignalController();
+      this.#inputProgressSignalController = new Tasks.SignalController();
+      this.#inputProgressThreshold = args.inputProgressThreshold;
+      this.#inputProgressCounter = 0;
+      this.#targetUsage = args.targetUsage;
+      this.#inputByteLength = args.inputByteLength;
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#setTimeoutValue = 4;
+      this.#smoothingFactor = args.smoothingFactor;
+      this.#lastStartTime = performance.now();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncPullSinkNode.connectInput",
+        error: e,
+      });
+    }
+  }
+  connectInput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#inputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncPullSinkNode.connectInput",
+        error: e,
+      });
+    }
+  }
+  get inputProgressSignal() {
+    try {
+      return this.#inputProgressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncPullSinkNode.inputProgressSignal",
+        error: e,
+      });
+    }
+  }
+  get flushedSignal() {
+    try {
+      return this.#flushedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncPullSinkNode.flushedSignal",
+        error: e,
+      });
+    }
+  }
+  flush() {
+    try {
+      this.#sink().flush({
+        state: this.#state,
+      });
+      this.#flushedSignalController.dispatch();
+      this.#state = this.#sink.init();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncPullSinkNode.flush",
+        error: e,
+      });
+    }
+  }
+  #execute() {
+    try {
+      const start = performance.now();
+      const staticExecute = this.#staticExecute;
+      const inputItem = this.#inputCallback.invoke();
+      const promise = this.#sink.execute({
+        input: inputItem,
+        state: this.#state,
+      });
+      self.setTimeout(function () {
+        promise.then(staticExecute);
+      }, this.setTimeoutValue);
+      const end = performance.now();
+      // Statistics
+      this.#avgInterval *= (1 - this.#smoothingFactor);
+      this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
+      this.#avgRunTime *= (1 - this.#smoothingFactor);
+      this.#avgRunTime += this.#smoothingFactor * (end - start);
+      this.#lastStartTime = start;
+      // Estimate proper interval
+      const estInterval = (this.#avgRunTime / this.#targetUsage);
+      // Adjust setTimeoutValue to attempt to reach this interval
+      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
+      if (this.#setTimeoutValue < 1) {
+        this.#setTimeoutValue = 1;
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncPullSinkNode.#execute",
+        error: e,
+      });
+    }
   }
 }
 
 export class AsyncBytePullSinkNode {
+  #sink;
+  #state;
+  #inputCallback;
+  #flushedSignalController;
+  #inputProgressSignalController;
+  #inputProgressThreshold;
+  #inputProgressCounter;
+  #targetUsage;
+  #staticExecute;
+  #setTimeoutValue;
+  // Statistics
+  #smoothingFactor;
+  #lastStartTime;
+  #avgRunTime;
+  #avgInterval;
   constructor(args) {
-    
+    try {
+      this.#sink = args.sink;
+      this.#state = this.#sink.init();
+      this.#flushedSignalController = new Tasks.SignalController();
+      this.#inputProgressSignalController = new Tasks.SignalController();
+      this.#inputProgressThreshold = args.inputProgressThreshold;
+      this.#inputProgressCounter = 0;
+      this.#targetUsage = args.targetUsage;
+      this.#inputByteLength = args.inputByteLength;
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#setTimeoutValue = 4;
+      this.#smoothingFactor = args.smoothingFactor;
+      this.#lastStartTime = performance.now();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncBytePullSinkNode.connectInput",
+        error: e,
+      });
+    }
+  }
+  connectInput(args) {
+    try {
+      const newCallback = (function () {
+        if (Types.isSimpleObject(args)) {
+          if (!(Object.hasOwn(args, "callback"))) {
+            throw "Argument \"callback\" must be provided.";
+          }
+          return args.sink;
+        } else {
+          return args;
+        }
+      })();
+      if (!("invoke" in newCallback)) {
+        throw "Callback must have member \"invoke\".";
+      }
+      if (!(Types.isInvocable(newCallback.invoke))) {
+        throw "Callback.invoke must be invocable.";
+      }
+      if (!("isRevoked" in newCallback)) {
+        throw "Callback must have member \"isRevoked\".";
+      }
+      if (!(Types.isInvocable(newCallback.isRevoked))) {
+        throw "Callback.isRevoked must be invocable.";
+      }
+      this.#inputCallback = newCallback;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncBytePullSinkNode.connectInput",
+        error: e,
+      });
+    }
+  }
+  get inputProgressSignal() {
+    try {
+      return this.#inputProgressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncBytePullSinkNode.inputProgressSignal",
+        error: e,
+      });
+    }
+  }
+  get flushedSignal() {
+    try {
+      return this.#flushedSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "get AsyncBytePullSinkNode.flushedSignal",
+        error: e,
+      });
+    }
+  }
+  flush() {
+    try {
+      this.#sink().flush({
+        state: this.#state,
+      });
+      this.#flushedSignalController.dispatch();
+      this.#state = this.#sink.init();
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncBytePullSinkNode.flush",
+        error: e,
+      });
+    }
+  }
+  #execute() {
+    try {
+      const start = performance.now();
+      const staticExecute = this.#staticExecute;
+      const inputBlock = new Memory.Block({
+        byteLength: this.#inputByteLength,
+      });
+      const inputView = new Memory.View({
+        memoryBlock: inputBlock,
+      });
+      this.#inputCallback.invoke(inputView);
+      const promise = this.#sink.execute({
+        input: inputView,
+        state: this.#state,
+      });
+      self.setTimeout(function () {
+        promise.then(staticExecute);
+      }, this.setTimeoutValue);
+      const end = performance.now();
+      // Statistics
+      this.#avgInterval *= (1 - this.#smoothingFactor);
+      this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
+      this.#avgRunTime *= (1 - this.#smoothingFactor);
+      this.#avgRunTime += this.#smoothingFactor * (end - start);
+      this.#lastStartTime = start;
+      // Estimate proper interval
+      const estInterval = (this.#avgRunTime / this.#targetUsage);
+      // Adjust setTimeoutValue to attempt to reach this interval
+      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
+      if (this.#setTimeoutValue < 1) {
+        this.#setTimeoutValue = 1;
+      }
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "AsyncBytePullSinkNode.#execute",
+        error: e,
+      });
+    }
   }
 }
 
