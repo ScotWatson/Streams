@@ -1303,10 +1303,33 @@ export class BytePipeNode {
 export class PumpNode {
   #inputCallback;
   #outputCallback;
+  #progressSignalController;
+  #progressCounter;
+  #progressThreshold;
+  #targetUsage;
+  #staticExecute;
+  #setTimeoutValue;
+  // Statistics
+  #smoothingFactor;
+  #lastStartTime;
+  #avgRunTime;
+  #avgInterval;
   constructor() {
     try {
+      this.#progressThreshold = args.progressThreshold;
+      this.#targetUsage = args.targetUsage;
+      this.#smoothingFactor = args.smoothingFactor;
+      this.#progressSignalController = new Tasks.SignalController();
+      this.#progressCounter = 0;
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#setTimeoutValue = 4;
       this.#inputCallback = new Tasks.Callback(null);
       this.#outputCallback = new Tasks.Callback(null);
+      this.#lastStartTime = performance.now();
+      this.#staticExecute();
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PumpNode constructor",
@@ -1334,10 +1357,43 @@ export class PumpNode {
       });
     }
   }
-  execute() {
+  get progressSignal() {
     try {
-      const item = this.#inputCallback.invoke();
-      this.#outputCallback.invoke(item);
+      return this.#progressSignalController.signal;
+    } catch (e) {
+      ErrorLog.rethrow({
+        functionName: "PumpNode.connectOutput",
+        error: e,
+      });
+    }
+  }
+  #execute() {
+    try {
+      const start = performance.now();
+      const inputItem = this.#inputCallback.invoke();
+      if (inputItem !== null) {
+        ++this.#progressCounter;
+        while (this.#progressCounter >= this.#progressThreshold) {
+          this.#progressSignalController.dispatch();
+          this.#progressCounter -= this.#progressThreshold;
+        }
+        this.#outputCallback.invoke(inputItem);
+      }
+      self.setTimeout(this.#staticExecute, this.#setTimeoutValue);
+      const end = performance.now();
+      // Statistics
+      this.#avgInterval *= (1 - this.#smoothingFactor);
+      this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
+      this.#avgRunTime *= (1 - this.#smoothingFactor);
+      this.#avgRunTime += this.#smoothingFactor * (end - start);
+      this.#lastStartTime = start;
+      // Estimate proper interval
+      const estInterval = (this.#avgRunTime / this.#targetUsage);
+      // Adjust setTimeoutValue to attempt to reach this interval
+      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
+      if (this.#setTimeoutValue < 1) {
+        this.#setTimeoutValue = 1;
+      }
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "PumpNode.execute",
@@ -1350,8 +1406,32 @@ export class PumpNode {
 export class BytePumpNode {
   #inputCallback;
   #outputCallback;
+  #progressSignalController;
+  #progressCounter;
+  #progressThreshold;
+  #targetUsage;
+  #staticExecute;
+  #setTimeoutValue;
+  #byteLength;
+  // Statistics
+  #smoothingFactor;
+  #lastStartTime;
+  #avgRunTime;
+  #avgInterval;
   constructor() {
     try {
+      this.#smoothingFactor = args.smoothingFactor;
+      this.#targetUsage = args.targetUsage;
+      this.#progressThreshold = args.inputProgressThreshold;
+      this.#byteLength = args.byteLength;
+      this.#progressSignalController = new SignalController();
+      this.#progressCounter = 0;
+      this.#staticExecute = Tasks.createStatic({
+        function: this.#execute,
+        this: this,
+      });
+      this.#setTimeoutValue = 4;
+      this.#lastStartTime = performance.now();
       this.#inputCallback = new Tasks.Callback(null);
       this.#outputCallback = new Tasks.ByteCallback(null);
     } catch (e) {
@@ -1383,10 +1463,30 @@ export class BytePumpNode {
   }
   execute(byteLength) {
     try {
-      const outputView = this.#outputCallback.allocate(byteLength);
-      const inputView = this.#inputCallback.invoke(byteLength);
-      outputView.set(inputView);
+      const start = performance.now();
+      const outputView = this.#outputCallback.allocate(this.#byteLength);
+      const byteLength = this.#inputCallback.invoke(outputView);
       this.#outputCallback.invoke(byteLength);
+      this.#progressCounter += byteLength;
+      while (this.#progressCounter >= this.#progressThreshold) {
+        this.#progressSignalController.dispatch();
+        this.#progressCounter -= this.#progressThreshold;
+      }
+      self.setTimeout(this.#staticExecute, this.#setTimeoutValue);
+      const end = performance.now();
+      // Statistics
+      this.#avgInterval *= (1 - this.#smoothingFactor);
+      this.#avgInterval += this.#smoothingFactor * (start - this.#lastStartTime);
+      this.#avgRunTime *= (1 - this.#smoothingFactor);
+      this.#avgRunTime += this.#smoothingFactor * (end - start);
+      this.#lastStartTime = start;
+      // Estimate proper interval
+      const estInterval = (this.#avgRunTime / this.#targetUsage);
+      // Adjust setTimeoutValue to attempt to reach this interval
+      this.#setTimeoutValue += 0.1 * (estInterval - this.#avgInterval);
+      if (this.#setTimeoutValue < 1) {
+        this.#setTimeoutValue = 1;
+      }
     } catch (e) {
       ErrorLog.rethrow({
         functionName: "BytePumpNode.execute",
@@ -4084,9 +4184,383 @@ export class AsyncBytePullSinkNode {
 
 
 
-// From 
+export function createReadableStreamSource() {
+  try {
+    const { readableStream } = (function () {
+      const ret = {};
+      if (Types.isSimpleObject(args)) {
+        if (!(Object.hasOwn(args, "writableStream"))) {
+          throw "Argument \"writableStream\" must be provided.";
+        }
+        ret.readableStream = args.readableStream;
+      } else {
+        ret.readableStream = args;
+      }
+      return ret;
+    })();
+    if (!(readableStream instanceof self.ReadableStream)) {
+      throw "Argument \"readableStream\" must be of type self.ReadableStream.";
+    }
+    const source = new AsyncSource();
+    sink.init = async function readableStreamSourceInit() {
+      try {
+        if (readableStream.locked) {
+          throw "Argument \"readableStream\" must be unlocked.";
+        }
+        return {
+          reader: readableStream.getReader(),
+        };
+      } catch (e) {
+        ErrorLog.rethrow({
+          functionName: "readableStreamSourceInit",
+          error: e,
+        });
+      }
+    };
+    source.execute = readableStreamSourceExecute;
+    source.flush = readableStreamSourceFlush;
+    return source;
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "createReadableStreamSource",
+      error: e,
+    });
+  }
+}
+
+async function readableStreamSourceExecute(args) {
+  try {
+    const { input, state } = (function () {
+      const ret = {};
+      if (!(Types.isSimpleObject(args))) {
+        throw "Argument must be a simple object.";
+      }
+      if (!(Object.hasOwn(args, "input"))) {
+        throw "Argument \"input\" must be provided.";
+      }
+      ret.input = args.input;
+      if (!(Object.hasOwn(args, "state"))) {
+        throw "Argument \"state\" must be provided.";
+      }
+      ret.state = args.state;
+      return ret;
+    })();
+    return await state.reader.read();
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "readableStreamSourceExecute",
+      error: e,
+    });
+  }
+}
+
+async function readableStreamSourceFlush(args) {
+  try {
+    const { state } = (function () {
+      const ret = {};
+      if (!(Types.isSimpleObject(args))) {
+        throw "Argument must be a simple object.";
+      }
+      if (!(Object.hasOwn(args, "state"))) {
+        throw "Argument \"state\" must be provided.";
+      }
+      ret.state = args.state;
+      return ret;
+    })();
+    state.reader.releaseLock();
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "readableStreamSourceFlush",
+      error: e,
+    });
+  }
+}
+
+export function createReadableByteStreamSource() {
+  try {
+    const { readableStream } = (function () {
+      const ret = {};
+      if (Types.isSimpleObject(args)) {
+        if (!(Object.hasOwn(args, "writableStream"))) {
+          throw "Argument \"writableStream\" must be provided.";
+        }
+        ret.readableStream = args.readableStream;
+      } else {
+        ret.readableStream = args;
+      }
+      return ret;
+    })();
+    if (!(readableStream instanceof self.ReadableStream)) {
+      throw "Argument \"readableStream\" must be of type self.ReadableStream.";
+    }
+    const source = new AsyncByteSource();
+    sink.init = async function readableByteStreamSourceInit() {
+      try {
+        if (readableStream.locked) {
+          throw "Argument \"readableStream\" must be unlocked.";
+        }
+        return {
+          reader: readableStream.getReader({
+            mode: "byob",
+          }),
+        };
+      } catch (e) {
+        ErrorLog.rethrow({
+          functionName: "readableByteStreamSourceInit",
+          error: e,
+        });
+      }
+    };
+    source.execute = readableByteStreamSourceExecute;
+    source.flush = readableByteStreamSourceFlush;
+    return source;
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "createReadableByteStreamSource",
+      error: e,
+    });
+  }
+}
+
+async function readableByteStreamSourceExecute(args) {
+  try {
+    const { input, state } = (function () {
+      const ret = {};
+      if (!(Types.isSimpleObject(args))) {
+        throw "Argument must be a simple object.";
+      }
+      if (!(Object.hasOwn(args, "input"))) {
+        throw "Argument \"input\" must be provided.";
+      }
+      ret.input = args.input;
+      if (!(Object.hasOwn(args, "state"))) {
+        throw "Argument \"state\" must be provided.";
+      }
+      ret.state = args.state;
+      return ret;
+    })();
+    const iter = await state.reader.read(input);
+    if (iter.value === undefined) {
+      
+    }
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "readableByteStreamSourceExecute",
+      error: e,
+    });
+  }
+}
+
+async function readableByteStreamSourceFlush(args) {
+  try {
+    const { state } = (function () {
+      const ret = {};
+      if (!(Types.isSimpleObject(args))) {
+        throw "Argument must be a simple object.";
+      }
+      if (!(Object.hasOwn(args, "state"))) {
+        throw "Argument \"state\" must be provided.";
+      }
+      ret.state = args.state;
+      return ret;
+    })();
+    state.reader.releaseLock();
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "readableByteStreamSourceFlush",
+      error: e,
+    });
+  }
+}
+
+export function createWritableStreamSink(args) {
+  try {
+    const { writableStream } = (function () {
+      const ret = {};
+      if (Types.isSimpleObject(args)) {
+        if (!(Object.hasOwn(args, "writableStream"))) {
+          throw "Argument \"writableStream\" must be provided.";
+        }
+        ret.writableStream = args.writableStream;
+      } else {
+        ret.writableStream = args;
+      }
+      return ret;
+    })();
+    if (!(writableStream instanceof self.WritableStream)) {
+      throw "Argument \"writableStream\" must be of type self.WritableStream.";
+    }
+    const sink = new AsyncSink();
+    sink.init = async function writableStreamSinkInit() {
+      try {
+        if (writableStream.locked) {
+          throw "Argument \"writableStream\" must be unlocked.";
+        }
+        return {
+          writer = writableStream.getWriter();
+        };
+      } catch (e) {
+        ErrorLog.rethrow({
+          functionName: "writableStreamSinkInit",
+          error: e,
+        });
+      }
+    };
+    sink.execute = writableStreamSinkExecute;
+    sink.flush = writableStreamSinkFlush;
+    return sink;
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "createWritableStreamSink",
+      error: e,
+    });
+  }
+}
+
+async function writableStreamSinkExecute(args) {
+  try {
+    const { input, state } = (function () {
+      const ret = {};
+      if (!(Types.isSimpleObject(args))) {
+        throw "Argument must be a simple object.";
+      }
+      if (!(Object.hasOwn(args, "input"))) {
+        throw "Argument \"input\" must be provided.";
+      }
+      ret.input = args.input;
+      if (!(Object.hasOwn(args, "state"))) {
+        throw "Argument \"state\" must be provided.";
+      }
+      ret.state = args.state;
+      return ret;
+    })();
+    return await state.writer.write(input);
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "writableStreamSinkExecute",
+      error: e,
+    });
+  }
+}
+
+async function writableStreamSinkFlush(args) {
+  try {
+    const { state } = (function () {
+      const ret = {};
+      if (!(Types.isSimpleObject(args))) {
+        throw "Argument must be a simple object.";
+      }
+      if (!(Object.hasOwn(args, "state"))) {
+        throw "Argument \"state\" must be provided.";
+      }
+      ret.state = args.state;
+      return ret;
+    })();
+    state.writer.releaseLock();
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "writableStreamSinkFlush",
+      error: e,
+    });
+  }
+};
+
+export function createWritableByteStreamSink(args) {
+  try {
+    const { writableStream } = (function () {
+      const ret = {};
+      if (Types.isSimpleObject(args)) {
+        if (!(Object.hasOwn(args, "writableStream"))) {
+          throw "Argument \"writableStream\" must be provided.";
+        }
+        ret.writableStream = args.writableStream;
+      } else {
+        ret.writableStream = args;
+      }
+      return ret;
+    })();
+    if (!(writableStream instanceof self.WritableStream)) {
+      throw "Argument \"writableStream\" must be of type self.WritableStream.";
+    }
+    const sink = new AsyncByteSink();
+    sink.init = async function writableByteStreamSinkInit() {
+      try {
+        if (writableStream.locked) {
+          throw "Argument \"writableStream\" must be unlocked.";
+        }
+        return {
+          writer = writableStream.getWriter();
+        };
+      } catch (e) {
+        ErrorLog.rethrow({
+          functionName: "writableByteStreamSinkInit",
+          error: e,
+        });
+      }
+    };
+    sink.execute = writableByteStreamSinkExecute;
+    sink.flush = writableByteStreamSinkFlush;
+    return sink;
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "createWritableByteStreamSink",
+      error: e,
+    });
+  }
+}
+
+async function writableByteStreamSinkExecute(args) {
+  try {
+    const { input, state } = (function () {
+      const ret = {};
+      if (!(Types.isSimpleObject(args))) {
+        throw "Argument must be a simple object.";
+      }
+      if (!(Object.hasOwn(args, "input"))) {
+        throw "Argument \"input\" must be provided.";
+      }
+      ret.input = args.input;
+      if (!(Object.hasOwn(args, "state"))) {
+        throw "Argument \"state\" must be provided.";
+      }
+      ret.state = args.state;
+      return ret;
+    })();
+    return await state.writer.write(input);
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "writableByteStreamSinkExecute",
+      error: e,
+    });
+  }
+}
+
+async function writableByteStreamSinkFlush(args) {
+  try {
+    const { state } = (function () {
+      const ret = {};
+      if (!(Types.isSimpleObject(args))) {
+        throw "Argument must be a simple object.";
+      }
+      if (!(Object.hasOwn(args, "state"))) {
+        throw "Argument \"state\" must be provided.";
+      }
+      ret.state = args.state;
+      return ret;
+    })();
+    state.writer.releaseLock();
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "writableByteStreamSinkFlush",
+      error: e,
+    });
+  }
+};
+
+
 export function createReadableStream(args) {
   try {
+    // source is an AsyncSource
     const source = args.source;
     let state;
     const underlyingSource = {
@@ -4121,26 +4595,74 @@ export function createReadableStream(args) {
   }
 }
 
+export function createReadableByteStream(args) {
+  try {
+    // source is an AsyncByteSource
+    const source = args.source;
+    let state;
+    const underlyingSource = {
+      start: async function (controller) {
+        state = await source.init();
+      },
+      pull: async function (controller) {
+        // controller is ReadableByteStreamController
+        const request = controller.byobRequest;
+        const outputView = new Memory.View({
+          view: request.view,
+        })
+        const byteLength = await source.execute({
+          output: outputView,
+          state: state,
+        });
+        if (byteLength === 0) {
+          controller.close();
+          return;
+        }
+        const trimmedView = request.view.slice(0, byteLength);
+        request.respondWithNewView(trimmedView);
+      },
+      cancel: async function (reason) {
+        const byteLength = await source.flush({
+          state: state,
+        });
+        return;
+      },
+    };
+    const readQueuingStrategy = {
+      highWaterMark: 1,
+      size: function (chunk) {
+        return 1;
+      }
+    };
+    return new self.ReadableStream(underlyingSource, readQueuingStrategy);
+  } catch (e) {
+    ErrorLog.rethrow({
+      functionName: "createReadableByteStream",
+      error: e,
+    });
+  }
+}
+
 export function createWritableStream(args) {
   try {
     const sink = args.sink;
     let state;
     const underlyingSink = {
-      start: function (controller) {
+      start: async function (controller) {
         state = sink.init();
       },
-      write: function (chunk, controller) {
+      write: async function (chunk, controller) {
         sink.execute({
           input: chunk,
           state: state,
         });
       },
-      close: function (controller) {
+      close: async function (controller) {
         sink.execute({
           state: state,
         });
       },
-      abort: function (reason) {
+      abort: async function (reason) {
       },
     };
     const writeQueuingStrategy = {
@@ -4155,170 +4677,6 @@ export function createWritableStream(args) {
   }
 }
 
-export class ReadableByteStreamPushSource {
-  #reader;
-  #pushSourceController;
-  #closedSignalController;
-  #cancelledSignalController;
-  constructor(args) {
-    try {
-      const { readableStream, chunkByteLength } = (function () {
-        let ret = {};
-        if (Types.isSimpleObject(args)) {
-          if (!(Object.hasOwn(args, "readableStream"))) {
-            throw "Argument \"readableStream\" must be provided.";
-          }
-          ret.readableStream = args.readableStream;
-          if (!(Object.hasOwn(args, "chunkByteLength"))) {
-            throw "Argument \"chunkByteLength\" must be provided.";
-          }
-          ret.chunkByteLength = args.chunkByteLength;
-        } else {
-          throw "Invalid Arguments";
-        }
-        return ret;
-      })();
-      if (!(readableStream instanceof self.ReadableStream)) {
-        throw "Argument \"readableStream\" must be of type self.ReadableStream.";
-      }
-      if (readableStream.locked) {
-        throw "Argument \"readableStream\" must be unlocked.";
-      }
-      const reader = readableStream.getReader({ mode: "byob" });
-      this.#reader = reader;
-      const callbackFunction = Tasks.createStatic({
-        function: this.#process,
-        this: this,
-      });
-      const callbackController = new Tasks.CallbackController({
-        invoke: callbackFunction,
-      });
-      this.#pushSourceController = new AsyncByteReaderPushSource({
-        callback: callbackController.callback,
-        outputByteRate: outputByteRate,
-      });
-      this.#closedSignalController = new Tasks.SignalController();
-      this.#cancelledSignalController = new Tasks.SignalController();
-      const dispatchClose = Tasks.createStatic({
-        function: this.#dispatchClose,
-        this: this,
-      });
-      reader.closed.then(dispatchClose);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "ReadableByteStreamPushSource constructor",
-        error: e,
-      });
-    }
-  }
-  #dispatchClose() {
-    this.#closedSignalController.dispatch();
-    this.#cancelledSignalController.dispatch();
-  }
-  connectOutput(args) {
-    try {
-      return this.#pushSourceController.connectOutput(args);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "ReadableByteStreamPushSource.connectOutput",
-        error: e,
-      });
-    }
-  }
-  async #process(view) {
-    try {
-      const uint8Array = view.toUint8Array();
-      const { value, done } = await this.#reader.read(uint8Array);
-      if (done) {
-        return null;
-      }
-      return value.byteLength;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "ReadableByteStreamPushSource.process",
-        error: e,
-      });
-    }
-  }
-  get closed() {
-    try {
-      return this.#closedSignalController.signal;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get ReadableByteStreamPushSource.closed",
-        error: e,
-      });
-    }
-  }
-  get cancelled() {
-    try {
-      return this.#cancelledSignalController.signal;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get ReadableByteStreamPushSource.cancelled",
-        error: e,
-      });
-    }
-  }
-};
-
-export class WritableStreamPushSink {
-  #pushCallbackController;
-  #writer;
-  constructor(args) {
-    try {
-      let writableStream = (function () {
-        if (Types.isSimpleObject(args)) {
-          if (Object.hasOwn(args, "writableStream")) {
-            throw "Argument \"writableStream\" must be provided.";
-          }
-          writableStream = args.writableStream;
-        } else {
-          writableStream = args;
-        }
-      })();
-      if (!(writableStream instanceof self.WritableStream)) {
-        throw "Argument \"writableStream\" must be of type self.WritableStream.";
-      }
-      if (writableStream.locked) {
-        throw "Argument \"writableStream\" must be unlocked.";
-      }
-      this.#writer = writableStream.getWriter();
-      const pushSinkCallbackFunction = Tasks.createStatic({
-        function: this.#writer.write,
-        this: this.#writer,
-      });
-      this.#pushCallbackController = new Tasks.CallbackController({
-        invoke: pushSinkCallbackFunction,
-      });
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "WritableStreamPushSink constructor",
-        error: e,
-      });
-    }
-  }
-  get inputCallback() {
-    try {
-      return this.#pushCallbackController.callback;
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "get WritableStreamPushSink.callback",
-        error: e,
-      });
-    }
-  }
-  disconnectInput() {
-    try {
-      this.#pushCallbackController.replace(null);
-    } catch (e) {
-      ErrorLog.rethrow({
-        functionName: "WritableStreamPushSink.disconnectInput",
-        error: e,
-      });
-    }
-  }
-};
 
 // From "PushSink" byte callback
 export function createWritableByteStream(callback) {
@@ -4335,7 +4693,6 @@ export function createWritableByteStream(callback) {
       },
       abort: function (reason) {
       },
-      mode: "bytes",
     };
     const writeQueuingStrategy = {
       highWaterMark: 1,
@@ -4349,33 +4706,3 @@ export function createWritableByteStream(callback) {
   }
 }
 
-// From "PullSource" callback (not byte callback)
-export function createReadableByteStream(callback) {
-  try {
-    const underlyingSource = {
-      start: function (controller) {
-        return;
-      },
-      pull: function (controller) {
-        const item = callback.invoke();
-        controller.enqueue(item);
-      },
-      cancel: function (reason) {
-        return;
-      },
-      mode: "bytes",
-    };
-    const readQueuingStrategy = {
-      highWaterMark: 1,
-      size: function (chunk) {
-        return 1;
-      }
-    };
-    return new self.ReadableStream(underlyingSource, readQueuingStrategy);
-  } catch (e) {
-    ErrorLog.rethrow({
-      functionName: "createReadableByteStream",
-      error: e,
-    });
-  }
-}
