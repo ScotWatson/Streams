@@ -22,9 +22,18 @@ const asyncErrorLog = (async function () {
   }
 })();
 
-const asyncStreams = (async function () {
+const asyncNodes = (async function () {
   try {
-    const module = await import("https://scotwatson.github.io/Streams/20230705/Streams.mjs");
+    const module = await import("https://scotwatson.github.io/Streams/20230705/Nodes.mjs");
+    return module;
+  } catch (e) {
+    console.error(e);
+  }
+})();
+
+const asyncOperations = (async function () {
+  try {
+    const module = await import("https://scotwatson.github.io/Streams/20230705/Operations.mjs");
     return module;
   } catch (e) {
     console.error(e);
@@ -33,20 +42,30 @@ const asyncStreams = (async function () {
 
 (async function () {
   try {
-    const modules = await Promise.all( [ asyncWindow, asyncErrorLog, asyncStreams ] );
+    const modules = await Promise.all( [ asyncWindow, asyncErrorLog, asyncNodes, asyncOperations ] );
     start(modules);
   } catch (e) {
     console.error(e);
   }
 })();
 
-async function start( [ evtWindow, ErrorLog, Streams ] ) {
+async function start( [ evtWindow, ErrorLog, Nodes, Operations ] ) {
+  function createRNGSource() {
+    const ret = new Operations.Source();
+    ret.init = function () {
+      return {};
+    };
+    ret.execute = function () {
+      return Math.random();
+    };
+  }
   try {
     const imgBird = document.createElement("img");
     imgBird.src = "FlappingBird.gif";
     imgBird.style.width = "200px";
     document.body.appendChild(imgBird);
     document.body.appendChild(document.createElement("br"));
+/*    
     const underlyingSource = {
       start: function (controller) {
         return;
@@ -93,6 +112,7 @@ async function start( [ evtWindow, ErrorLog, Streams ] ) {
       const end = performance.now();
       setTimeout(execute, 0);
     })();
+*/
   } catch (e) {
     ErrorLog.rethrow({
       functionName: "start",
