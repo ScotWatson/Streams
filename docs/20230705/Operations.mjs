@@ -3,9 +3,9 @@
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import * as Types from "https://scotwatson.github.io/Debug/Test/Types.mjs";
-import * as ErrorLog from "https://scotwatson.github.io/Debug/Test/ErrorLog.mjs";
-import * as Sequence from "https://scotwatson.github.io/Containers/Test/Sequence.mjs";
+import * as Types from "https://scotwatson.github.io/Debug/20230705/Types.mjs";
+import * as ErrorLog from "https://scotwatson.github.io/Debug/20230705/ErrorLog.mjs";
+import * as Sequence from "https://scotwatson.github.io/Containers/20230705/Sequence.mjs";
 
 export class Source {
   constructor() {
