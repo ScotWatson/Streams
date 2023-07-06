@@ -15,7 +15,7 @@ const asyncWindow = new Promise(function (resolve, reject) {
 
 const asyncErrorLog = (async function () {
   try {
-    const module = await import("https://scotwatson.github.io/Debug/20221107/ErrorLog.mjs");
+    const module = await import("https://scotwatson.github.io/Debug/20230705/ErrorLog.mjs");
     return module;
   } catch (e) {
     console.error(e);
@@ -24,7 +24,7 @@ const asyncErrorLog = (async function () {
 
 const asyncStreams = (async function () {
   try {
-    const module = await import("https://scotwatson.github.io/Streams/20221107/Streams.mjs");
+    const module = await import("https://scotwatson.github.io/Streams/20230705/Streams.mjs");
     return module;
   } catch (e) {
     console.error(e);
