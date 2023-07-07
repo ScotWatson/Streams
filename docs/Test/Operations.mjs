@@ -7,6 +7,12 @@ import * as Types from "https://scotwatson.github.io/Debug/20230705/Types.mjs";
 import * as ErrorLog from "https://scotwatson.github.io/Debug/20230705/ErrorLog.mjs";
 import * as Sequence from "https://scotwatson.github.io/Containers/20230705/Sequence.mjs";
 
+export const state = {
+  ready: Symbol("Ready"),
+  closed: Symbol("Closed"),
+};
+Object.freeze(state);
+
 export class Source {
   constructor() {
   }
